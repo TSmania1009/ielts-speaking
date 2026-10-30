@@ -111,7 +111,7 @@
     <div class="progress"><div id="prog"></div></div>
     <div class="card">
       <div class="video-wrap hidden" id="videoWrap"><div id="yt"></div><div class="tap hidden" id="tapPlay">▶ 눌러서 질문 재생</div></div>
-      <div id="listening" class="listen hidden">🔊 질문을 듣고 있어요…</div>
+      <div id="listening" class="listen hidden">🔊 질문을 잘 들으세요…</div>
       <div id="qText" class="qtext"></div>
       <div id="cue" class="cue hidden"></div>
       <div id="memoWrap" class="hidden"><label for="memo">메모 (제출되지 않아요)</label><textarea id="memo" rows="4"></textarea></div>
@@ -228,13 +228,14 @@ async function loadExam(setId) {
   try {
     const d = await apiGet({ action: 'exam', sid: S.sid, code: S.code, set: setId });
     S.set = d.set; S.questions = d.questions;
+    await prefetchAudio((i, n) => msg($('setsMsg'), 'warn', `질문 음성을 받는 중… (${i}/${n})`));
     $('setsMsg').className = 'msg hidden';
     $('setTitle').textContent = d.set.title;
     $('guide').textContent = d.set.guide || '';
     if (S.questions.some(q => q.video)) loadYouTubeApi();
     show('vReady');
   } catch (e) {
-    msg($('setsMsg'), 'bad', e.server ? e.message : '문항을 불러오지 못했습니다. 다시 눌러 주세요.');
+    msg($('setsMsg'), 'bad', (e.server || /질문 음성/.test(e.message)) ? e.message + ' 다시 눌러 주세요.' : '문항을 불러오지 못했습니다. 다시 눌러 주세요.');
   }
 }
 
@@ -297,27 +298,36 @@ function beep() {
   return sleep(350);
 }
 
-/* ================= TTS ================= */
-let voice = null;
-function pickVoice() {
-  const vs = speechSynthesis.getVoices();
-  voice = vs.find(v => /en-GB/i.test(v.lang) && /Google|Daniel|Serena|Kate|Arthur/i.test(v.name))
-       || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+/* ================= 교사 녹음 음성 ================= */
+/* 시험 시작 전에 모두 받아 두고, 마이크와 같은 AudioContext로 재생 (iPad에서도 안정적) */
+async function prefetchAudio(onProgress) {
+  const list = S.questions.filter(q => q.audioId && !q.audioBuf);
+  let n = 0;
+  for (const q of list) {
+    onProgress(++n, list.length);
+    for (let a = 1; a <= 3; a++) {
+      try {
+        const d = await apiGet({ action: 'qaudio', sid: S.sid, code: S.code, id: q.audioId });
+        const bin = atob(d.data), u = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+        q.audioBuf = u.buffer; break;
+      } catch (e) { if (a === 3) throw new Error(`질문 음성(P${q.part}-${q.order})을 받지 못했습니다.`); await sleep(1000 * a); }
+    }
+  }
 }
-if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-function unlockTTS() { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (_) {} }
-function speak(text) {
-  return new Promise(resolve => {
-    if (!('speechSynthesis' in window)) return resolve();
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    if (voice) u.voice = voice; u.lang = voice ? voice.lang : 'en-GB'; u.rate = 0.95;
-    let done = false; const fin = () => { if (!done) { done = true; resolve(); } };
-    u.onend = fin; u.onerror = fin;
-    setTimeout(fin, 3000 + text.length * 90);       // onend가 안 오는 기기 대비
-    speechSynthesis.speak(u);
-  });
+async function playAudio(arrayBuf) {
+  try {
+    if (A.ctx.state === 'suspended') await A.ctx.resume();
+    const buf = await A.ctx.decodeAudioData(arrayBuf.slice(0));
+    return await new Promise(res => {
+      const s = A.ctx.createBufferSource(); s.buffer = buf; s.connect(A.ctx.destination);
+      s.onended = () => res(true); s.start();
+      setTimeout(() => res(true), (buf.duration + 2) * 1000);   // onended 누락 대비
+    });
+  } catch (e) { return false; }
 }
+/* 영상·음성이 없을 때: 질문 글자를 읽을 시간 */
+function readingTime(text) { return Math.min(15, 3 + Math.ceil(text.split(/\s+/).length * 0.4)); }
 
 /* ================= YouTube ================= */
 let ytReady = null, ytPlayer = null;
@@ -334,7 +344,7 @@ function ytId(url) {
   const m = String(url).match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
-/* 영상이 끝나면 true, 재생 실패 시 false (→ TTS로 대체) */
+/* 영상이 끝나면 true, 재생 실패 시 false (→ 녹음 음성 또는 글자로 대체) */
 async function playVideo(url) {
   const id = ytId(url);
   if (!id) return false;
@@ -360,7 +370,7 @@ async function playVideo(url) {
     ytPlayer._h = onState; ytPlayer._err = onError;
     $('tapPlay').onclick = () => { try { ytPlayer.playVideo(); } catch (_) {} };
     setTimeout(() => { if (!started && !finished) vis('tapPlay', true); }, 3500);   // 자동재생 막히면 탭 안내
-    setTimeout(() => { if (!started && !finished) done(false); }, 30000);           // 끝내 재생 안 되면 TTS로
+    setTimeout(() => { if (!started && !finished) done(false); }, 30000);           // 끝내 재생 안 되면 다음 수단으로
   });
 }
 
@@ -409,7 +419,7 @@ const PART_INFO = {
 
 $('btnMic').onclick = async () => {
   $('btnMic').disabled = true;
-  unlockTTS();
+
   try {
     await initAudio();
     vis('btnMic', false); vis('micArea', true); vis('micMsg', false);
@@ -420,7 +430,7 @@ $('btnMic').onclick = async () => {
 };
 
 $('btnStart').onclick = async () => {
-  unlockTTS();
+
   S.attemptId = `${S.set.id}-${S.sid}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 5)}`;
   window.onbeforeunload = () => '시험이 진행 중입니다.';
   apiPost({ action: 'start', sid: S.sid, code: S.code, setId: S.set.id, attemptId: S.attemptId, device }).catch(() => {});
@@ -432,7 +442,7 @@ function waitPartButton(part) {
     $('partTitle').textContent = PART_INFO[part][0];
     $('partDesc').textContent = PART_INFO[part][1];
     show('vPart');
-    $('btnPart').onclick = () => { unlockTTS(); if (A.ctx.state === 'suspended') A.ctx.resume(); res(); };
+    $('btnPart').onclick = () => { if (A.ctx.state === 'suspended') A.ctx.resume(); res(); };
   });
 }
 
@@ -471,12 +481,16 @@ async function runExam() {
     $('qText').textContent = showText ? q.text : '';
     if (q.longTurn) { $('cue').textContent = q.cue; vis('cue', true); $('memo').value = ''; }
 
-    // 질문 제시: 영상 → 실패 시 TTS
-    vis('listening', !q.video);
+    // 질문 제시: 영상 → 교사 녹음 음성 → 글자만 표시
     let played = false;
     if (q.video) played = await playVideo(q.video);
-    if (!played) { vis('listening', true); await speak(q.text); }
-    vis('listening', false);
+    if (!played && q.audioBuf) { vis('listening', true); played = await playAudio(q.audioBuf); vis('listening', false); }
+    if (!played) {
+      $('qText').textContent = q.text;                // 들려줄 수단이 없으면 글자로 보여줌
+      setPhase('prep', '질문을 읽어 보세요');
+      await sleep(readingTime(q.text) * 1000);
+      setPhase('', '');
+    }
 
     // Part 2 준비 시간 (녹음 없음)
     if (q.prep > 0) {

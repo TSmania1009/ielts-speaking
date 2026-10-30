@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IELTS Speaking 문항 녹음</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e4e7ec;
+          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --accent:#2f5bd3; --rec:#d92d20; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } .sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  input, select { padding: 10px 12px; font-size: 15px; border:1px solid var(--line); border-radius: 8px; font-family: inherit; }
+  button { appearance:none; border:0; border-radius: 8px; padding: 9px 14px; font-size: 14px; font-weight: 600;
+           background: var(--accent); color:#fff; cursor:pointer; }
+  button.ghost { background:#eef2fb; color: var(--accent); }
+  button.rec { background: var(--rec); } button.danger { background:#fff; color: var(--bad); border:1px solid #f3c4bf; }
+  button:disabled { opacity:.45; cursor: default; }
+  .row { display:flex; gap:8px; flex-wrap: wrap; align-items:center; }
+  .q { display:grid; gap: 8px; }
+  .qhead { display:flex; justify-content:space-between; gap: 8px; align-items: baseline; }
+  .tag { font-size: 12px; font-weight: 700; color: var(--accent); background:#eef2fb; border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
+  .qtext { font-size: 16px; }
+  .cue { font-size: 13px; color: var(--muted); white-space: pre-line; }
+  .st { font-size: 13px; } .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .meter { height: 8px; background:#eef0f4; border-radius: 4px; overflow:hidden; flex: 1; min-width: 80px; }
+  .meter > div { height:100%; width:0; background: var(--rec); }
+  audio { width: 100%; height: 36px; }
+  .hidden { display:none !important; }
+  .msg { padding: 10px 12px; border-radius: 8px; font-size: 14px; margin-top: 10px; }
+  .msg.bad { background:#fdecea; color: var(--bad); } .msg.ok { background:#e8f6ef; color: var(--ok); }
+  .legend { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>문항 음성 녹음 (교사용)</h1>
+  <p class="sub">문항마다 선생님 목소리로 질문을 녹음해 두면 학생 시험에서 그대로 재생됩니다.</p>
+
+  <section id="vLogin" class="card">
+    <div class="row">
+      <input type="password" id="key" placeholder="교사 키" autocomplete="off" style="flex:1; min-width: 160px">
+      <button id="btnLogin">들어가기</button>
+    </div>
+    <div id="loginMsg" class="msg bad hidden"></div>
+  </section>
+
+  <section id="vMain" class="hidden">
+    <div class="card row" style="justify-content:space-between">
+      <div class="row"><label for="setSel">차수</label><select id="setSel"></select></div>
+      <button class="ghost" id="btnReload">새로고침</button>
+    </div>
+    <p class="legend">재생 우선순위: 영상URL → 녹음 음성 → (둘 다 없으면) 질문 글자만 표시. 문항 추가·수정은 스프레드시트 ‘문항’ 탭에서 하고 새로고침하세요.</p>
+    <div id="list"></div>
+  </section>
+</main>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
+const RATE = 24000;   // 질문 음성은 조금 더 선명하게
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+let KEY = '', SETS = [];
+
+/* ---------- API (exam.html과 동일한 방식) ---------- */
+async function apiGet(params) {
+  const r = await fetch(`${API_URL}?${new URLSearchParams(params)}`, { cache: 'no-store' });
+  const d = await r.json(); if (!d.ok) throw Object.assign(new Error(d.error), { server: true }); return d;
+}
+async function apiPost(payload) {
+  payload.reqId = rid(); const body = JSON.stringify(payload);
+  try { const d = await fetch(API_URL, { method: 'POST', body }).then(r => r.json());
+        if (!d.ok) throw Object.assign(new Error(d.error), { server: true }); return d; }
+  catch (e) { if (e.server) throw e; }
+  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
+  for (let i = 0; i < 10; i++) {
+    await sleep(1500);
+    try { const d = await fetch(`${API_URL}?action=status&id=${payload.reqId}`, { cache: 'no-store' }).then(r => r.json());
+          if (d.ok) return d; if (d.error) throw Object.assign(new Error(d.error), { server: true }); }
+    catch (e) { if (e.server) throw e; }
+  }
+  throw new Error('서버 응답을 확인하지 못했습니다.');
+}
+
+/* ---------- 로그인 ---------- */
+$('btnLogin').onclick = async () => {
+  KEY = $('key').value.trim();
+  try {
+    const d = await apiGet({ action: 'tsets', key: KEY });
+    try { sessionStorage.setItem('tkey', KEY); } catch (_) {}
+    SETS = d.sets; $('vLogin').classList.add('hidden'); $('vMain').classList.remove('hidden'); renderSets();
+  } catch (e) { const m = $('loginMsg'); m.classList.remove('hidden'); m.textContent = e.server ? e.message : '서버에 연결할 수 없습니다.'; }
+};
+$('key').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
+try { const k = sessionStorage.getItem('tkey'); if (k) { $('key').value = k; $('btnLogin').click(); } } catch (_) {}
+
+$('btnReload').onclick = async () => {
+  const cur = $('setSel').value;
+  SETS = (await apiGet({ action: 'tsets', key: KEY })).sets; renderSets(cur);
+};
+
+function renderSets(keep) {
+  const sel = $('setSel'); sel.innerHTML = '';
+  SETS.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.textContent = `${s.id} · ${s.title}${s.open ? '' : ' (비공개)'}`; sel.appendChild(o); });
+  if (keep) sel.value = keep;
+  sel.onchange = renderList; renderList();
+}
+
+function esc(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function renderList() {
+  const set = SETS.find(s => s.id === $('setSel').value); const box = $('list'); box.innerHTML = '';
+  if (!set || !set.questions.length) { box.innerHTML = '<div class="card sub">이 차수에 문항이 없습니다.</div>'; return; }
+  set.questions.forEach(q => box.appendChild(questionCard(set.id, q)));
+}
+
+/* ---------- 문항 카드 ---------- */
+function questionCard(setId, q) {
+  const el = document.createElement('div'); el.className = 'card q';
+  el.innerHTML = `
+    <div class="qhead"><div class="qtext">${esc(q.text)}</div><span class="tag">P${q.part}-${q.order}</span></div>
+    ${q.cue ? `<div class="cue">${esc(q.cue)}</div>` : ''}
+    <div class="st" data-st></div>
+    <audio controls class="hidden" data-player></audio>
+    <div class="row">
+      <button data-rec>● 녹음</button>
+      <div class="meter hidden" data-meter><div></div></div>
+      <span class="st hidden" data-time></span>
+      <button class="ghost" data-listen>기존 음성 듣기</button>
+      <label class="ghost" style="cursor:pointer"><input type="file" accept="audio/*" data-file class="hidden"><span class="tag" style="padding:9px 12px">파일 올리기</span></label>
+      <button class="hidden" data-save>저장</button>
+      <button class="danger" data-del>음성 삭제</button>
+    </div>`;
+  const f = s => el.querySelector(`[data-${s}]`);
+  let pending = null;  // {blob, mime, ext}
+
+  const status = () => {
+    const st = f('st');
+    if (q.video) { st.className = 'st ok'; st.textContent = '🎬 영상URL이 있어 영상이 재생됩니다' + (q.audioId ? ' (녹음 음성은 영상 실패 시 사용)' : ''); }
+    else if (q.audioId) { st.className = 'st ok'; st.textContent = '🎙 녹음 음성 등록됨'; }
+    else { st.className = 'st warn'; st.textContent = '음성 없음 — 학생 화면에 질문 글자만 표시됩니다'; }
+    f('listen').classList.toggle('hidden', !q.audioId); f('del').classList.toggle('hidden', !q.audioId);
+  };
+  status();
+
+  const preview = (blob, mime, ext) => {
+    pending = { blob, mime, ext };
+    const p = f('player'); p.src = URL.createObjectURL(blob); p.classList.remove('hidden');
+    f('save').classList.remove('hidden'); f('save').disabled = false; f('save').textContent = '저장';
+    f('st').className = 'st warn'; f('st').textContent = '미리 듣고 괜찮으면 저장을 누르세요 (저장 전에는 반영되지 않음)';
+  };
+
+  /* 녹음 */
+  f('rec').onclick = async () => {
+    if (REC.active && REC.owner === el) {           // 정지
+      const blob = stopRecording(); f('rec').textContent = '● 다시 녹음'; f('rec').className = '';
+      f('meter').classList.add('hidden'); f('time').classList.add('hidden');
+      preview(blob, 'audio/wav', 'wav'); return;
+    }
+    if (REC.active) return alertInline(el, '다른 문항을 녹음 중입니다. 먼저 정지하세요.');
+    try { await startRecording(el, f('meter').firstElementChild, f('time')); }
+    catch (e) { return alertInline(el, '마이크를 켤 수 없습니다: ' + (e.name === 'NotAllowedError' ? '권한을 허용해 주세요.' : e.message)); }
+    f('rec').textContent = '■ 정지'; f('rec').className = 'rec';
+    f('meter').classList.remove('hidden'); f('time').classList.remove('hidden');
+  };
+
+  /* 파일 올리기 (mp3, m4a, wav 등) */
+  f('file').onchange = e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 20 * 1024 * 1024) return alertInline(el, '20MB 이하 파일만 올릴 수 있어요.');
+    const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
+    preview(file, file.type || 'audio/mpeg', ext); e.target.value = '';
+  };
+
+  /* 저장 */
+  f('save').onclick = async () => {
+    if (!pending) return;
+    f('save').disabled = true; f('save').textContent = '저장 중…';
+    try {
+      const d = await apiPost({ action: 'qaudioSave', key: KEY, setId, part: q.part, order: q.order,
+        mime: pending.mime, ext: pending.ext, audio: await toBase64(pending.blob) });
+      q.audioId = d.audioId; pending = null;
+      f('save').classList.add('hidden'); f('player').classList.add('hidden'); status();
+      f('st').textContent += ` · 저장 완료 (${d.sizeKB}KB)`;
+    } catch (e) { f('save').disabled = false; f('save').textContent = '저장'; alertInline(el, '저장 실패: ' + e.message); }
+  };
+
+  /* 기존 음성 듣기 */
+  f('listen').onclick = async () => {
+    f('listen').disabled = true; f('listen').textContent = '불러오는 중…';
+    try {
+      const d = await apiGet({ action: 'qaudio', key: KEY, id: q.audioId });
+      const p = f('player'); p.src = URL.createObjectURL(b64ToBlob(d.data, d.mime)); p.classList.remove('hidden'); p.play().catch(() => {});
+    } catch (e) { alertInline(el, '불러오기 실패: ' + e.message); }
+    f('listen').disabled = false; f('listen').textContent = '기존 음성 듣기';
+  };
+
+  /* 삭제 */
+  f('del').onclick = async () => {
+    if (f('del').dataset.confirm !== '1') { f('del').dataset.confirm = '1'; f('del').textContent = '정말 삭제?'; setTimeout(() => { f('del').dataset.confirm = ''; f('del').textContent = '음성 삭제'; }, 3000); return; }
+    try { await apiPost({ action: 'qaudioDelete', key: KEY, setId, part: q.part, order: q.order }); q.audioId = ''; f('player').classList.add('hidden'); status(); }
+    catch (e) { alertInline(el, '삭제 실패: ' + e.message); }
+    f('del').dataset.confirm = ''; f('del').textContent = '음성 삭제';
+  };
+  return el;
+}
+
+function alertInline(card, text) {
+  let m = card.querySelector('.msg'); if (!m) { m = document.createElement('div'); m.className = 'msg bad'; card.appendChild(m); }
+  m.textContent = text; setTimeout(() => m.remove(), 5000);
+}
+
+/* ---------- 녹음 엔진 ---------- */
+const REC = { ctx: null, stream: null, proc: null, active: false, chunks: [], owner: null, t0: 0, timer: null };
+async function startRecording(owner, bar, timeEl) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  REC.ctx = new AC(); if (REC.ctx.state === 'suspended') await REC.ctx.resume();
+  REC.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+  const src = REC.ctx.createMediaStreamSource(REC.stream);
+  REC.proc = REC.ctx.createScriptProcessor(4096, 1, 1);
+  REC.chunks = [];
+  REC.proc.onaudioprocess = ev => {
+    const d = ev.inputBuffer.getChannelData(0); REC.chunks.push(new Float32Array(d));
+    let m = 0; for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > m) m = v; }
+    bar.style.width = Math.min(100, m * 160) + '%';
+  };
+  const mute = REC.ctx.createGain(); mute.gain.value = 0;
+  src.connect(REC.proc); REC.proc.connect(mute); mute.connect(REC.ctx.destination);
+  REC.active = true; REC.owner = owner; REC.t0 = Date.now();
+  REC.timer = setInterval(() => timeEl.textContent = Math.round((Date.now() - REC.t0) / 1000) + '초', 250);
+}
+function stopRecording() {
+  const rate = REC.ctx.sampleRate;
+  clearInterval(REC.timer);
+  try { REC.proc.disconnect(); } catch (_) {}
+  REC.stream.getTracks().forEach(t => t.stop()); REC.ctx.close();
+  REC.active = false; REC.owner = null;
+  let len = 0; REC.chunks.forEach(c => len += c.length);
+  const all = new Float32Array(len); let o = 0; REC.chunks.forEach(c => { all.set(c, o); o += c.length; });
+  return encodeWav(trimSilence(downsample(all, rate, RATE)), RATE);
+}
+/* 앞뒤 무음 자르기 (버튼 누르는 소리/공백 제거) */
+function trimSilence(s) {
+  const th = 0.02, pad = Math.floor(RATE * 0.15);
+  let a = 0, b = s.length - 1;
+  while (a < s.length && Math.abs(s[a]) < th) a++;
+  while (b > a && Math.abs(s[b]) < th) b--;
+  if (b <= a) return s;
+  return s.slice(Math.max(0, a - pad), Math.min(s.length, b + pad));
+}
+function downsample(buf, from, to) {
+  if (to >= from) return buf;
+  const r = from / to, n = Math.floor(buf.length / r), out = new Float32Array(n); let pos = 0;
+  for (let i = 0; i < n; i++) { const end = Math.floor((i + 1) * r); let s = 0, c = 0; for (; pos < end && pos < buf.length; pos++) { s += buf[pos]; c++; } out[i] = c ? s / c : 0; }
+  return out;
+}
+function encodeWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0, o = 44; i < samples.length; i++, o += 2) { const s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+async function toBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer()); let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function b64ToBlob(b64, mime) {
+  const bin = atob(b64), u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return new Blob([u], { type: mime });
+}
+</script>
+</body>
+</html>
