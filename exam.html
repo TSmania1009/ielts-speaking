@@ -44,6 +44,10 @@
   .phase.prep { color: var(--warn); } .phase.prep .dot { background: var(--warn); }
   @keyframes blink { 50% { opacity: .25; } }
   .timer { font-size: 44px; font-weight: 700; text-align:center; font-variant-numeric: tabular-nums; margin: 4px 0; }
+  .fb { white-space: pre-wrap; font-size: 15px; line-height: 1.65; }
+  .trans { background:#f9fafb; border:1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; color:#344054; }
+  .tagq { font-size: 12px; font-weight: 700; color: var(--accent); background:#eef2fb; border-radius: 6px; padding: 2px 8px; }
+  audio { width: 100%; margin-top: 8px; }
   .listen { text-align:center; color: var(--muted); padding: 18px 0; font-size: 18px; }
   table { width:100%; border-collapse: collapse; font-size: 14px; }
   td, th { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align:left; }
@@ -70,6 +74,18 @@
     <p class="sub">응시할 모의고사를 고르세요.</p>
     <div class="card setlist" id="setList"></div>
     <div id="setsMsg" class="msg hidden"></div>
+    <h2 style="margin-top:24px">내 결과</h2>
+    <p class="sub">선생님이 확인을 마친 시험의 피드백을 볼 수 있어요.</p>
+    <div class="card setlist" id="resList"><p class="sub" style="margin:0">불러오는 중…</p></div>
+  </section>
+
+  <!-- 결과 보기 -->
+  <section id="vResult" class="hidden">
+    <button class="secondary" id="btnResBack" style="width:auto; margin:0 0 12px">← 돌아가기</button>
+    <h1 id="resTitle"></h1>
+    <p class="sub" id="resDate"></p>
+    <div class="card"><h2>선생님 종합 피드백</h2><div id="resSummary" class="fb"></div></div>
+    <div id="resAnswers"></div>
   </section>
 
   <!-- 3. 안내 + 마이크 확인 -->
@@ -153,7 +169,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 function show(view) {
-  ['vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone'].forEach(v => $(v).classList.toggle('hidden', v !== view));
+  ['vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone', 'vResult'].forEach(v => $(v).classList.toggle('hidden', v !== view));
   window.scrollTo(0, 0);
 }
 function msg(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text; }
@@ -222,7 +238,50 @@ function renderSets(sets) {
     box.appendChild(b);
   });
   show('vSets');
+  loadResults();
 }
+
+/* ================= 내 결과 (Band는 표시하지 않음) ================= */
+let RESULTS = [];
+async function loadResults() {
+  const box = $('resList');
+  try {
+    RESULTS = (await apiGet({ action: 'myResults', sid: S.sid, code: S.code })).results;
+    box.innerHTML = RESULTS.length ? '' : '<p class="sub" style="margin:0">아직 공개된 결과가 없습니다.</p>';
+    RESULTS.forEach((r, i) => {
+      const b = document.createElement('button');
+      b.innerHTML = `${escapeHtml(r.setTitle)}<small>${escapeHtml(r.date)} 응시 · 피드백 보기</small>`;
+      b.onclick = () => openResult(i); box.appendChild(b);
+    });
+  } catch (e) { box.innerHTML = '<p class="sub" style="margin:0">결과를 불러오지 못했습니다.</p>'; }
+}
+function openResult(i) {
+  const r = RESULTS[i];
+  $('resTitle').textContent = r.setTitle; $('resDate').textContent = r.date + ' 응시';
+  $('resSummary').textContent = r.summary || '(종합 피드백 없음)';
+  const box = $('resAnswers'); box.innerHTML = '';
+  r.answers.forEach(a => {
+    const el = document.createElement('div'); el.className = 'card';
+    el.innerHTML = `<span class="tagq">Part ${a.part} · ${a.order}</span>
+      <div class="qtext" style="font-size:17px">${escapeHtml(a.question)}</div>
+      <button class="secondary" style="width:auto; margin-top:4px">▶ 내 답변 듣기</button><div data-p></div>
+      ${a.transcript ? `<p class="sub" style="margin:12px 0 4px">내 답변 받아쓰기 (AI가 받아 적어 일부 틀릴 수 있어요)</p><div class="trans">${escapeHtml(a.transcript)}</div>` : ''}
+      <p class="sub" style="margin:12px 0 4px">피드백</p><div class="fb">${escapeHtml(a.feedback || '(피드백 없음)')}</div>`;
+    const btn = el.querySelector('button');
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = '불러오는 중…';
+      try {
+        const d = await apiGet({ action: 'myAudio', sid: S.sid, code: S.code, fileId: a.fileId });
+        const bin = atob(d.data), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
+        el.querySelector('[data-p]').innerHTML = `<audio controls autoplay src="${URL.createObjectURL(new Blob([u], { type: d.mime }))}"></audio>`;
+        btn.classList.add('hidden');
+      } catch (e) { btn.disabled = false; btn.textContent = '▶ 다시 시도'; }
+    };
+    box.appendChild(el);
+  });
+  show('vResult');
+}
+$('btnResBack').onclick = () => show('vSets');
 function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 async function loadExam(setId) {

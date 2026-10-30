@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IELTS Speaking 출제</title>
+<title>IELTS Speaking 교사용</title>
 <style>
   :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e4e7ec;
           --ok:#12805c; --warn:#b54708; --bad:#c0362c; --accent:#2f5bd3; --rec:#d92d20; --soft:#eef2fb; }
@@ -49,13 +49,29 @@
   .switch { display:inline-flex; align-items:center; gap:6px; font-size: 14px; cursor:pointer; }
   .switch input { width: 18px; height: 18px; }
   .hint { font-size: 12px; color: var(--muted); }
+  .tabs { display:flex; gap:6px; margin-bottom: 12px; }
+  .tab { background:#fff; color: var(--muted); border:1px solid var(--line); }
+  .tab.on { background: var(--ink); color:#fff; border-color: var(--ink); }
+  .arow { display:grid; grid-template-columns: 1fr auto; gap: 4px 12px; cursor:pointer; }
+  .arow:hover { border-color: var(--accent); }
+  .st-미채점 { background:#f2f4f7; color: var(--muted); } .st-AI.초안, .st-ai { background:#eef2fb; color: var(--accent); }
+  .st-검토 { background:#fff4e5; color: var(--warn); } .st-공개 { background:#e8f6ef; color: var(--ok); }
+  .pill { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+  .bands { display:grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .bands label { font-size: 12px; color: var(--muted); display:block; margin-bottom: 2px; }
+  .bands input { text-align:center; font-weight: 700; }
+  .teacher-only { border: 1px dashed #c7d2fe; background: #f8f9ff; }
+  .tbox { background:#f9fafb; border:1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; }
+  details summary { cursor:pointer; font-size: 13px; color: var(--accent); margin-top: 8px; }
+  .sticky { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; display:flex; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 560px) { .bands { grid-template-columns: repeat(3, 1fr); } }
   @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>IELTS Speaking 출제 (교사용)</h1>
-  <p class="sub">차수를 만들고, Part별로 질문을 입력한 뒤 질문 음성이나 영상을 올리세요.</p>
+  <h1>IELTS Speaking 교사용</h1>
+  <p class="sub">출제: 차수와 질문, 질문 음성·영상 관리 · 채점: 학생 답변 듣기, AI 초안 검토, 피드백 공개</p>
 
   <section id="vLogin" class="card">
     <div class="row">
@@ -65,12 +81,26 @@
   </section>
 
   <section id="vMain" class="hidden">
+    <div class="tabs"><button class="tab on" data-tab="author">출제</button><button class="tab" data-tab="grade">채점</button></div>
+   <div id="tabAuthor">
     <div class="card row between">
       <div class="row" style="flex:1; min-width: 240px"><select id="setSel" style="flex:1"></select></div>
       <div class="row"><button class="ghost" id="btnNewSet">+ 새 차수</button><button class="plain" id="btnReload">새로고침</button></div>
     </div>
     <div id="setBox"></div>
     <div id="partsBox"></div>
+   </div>
+   <div id="tabGrade" class="hidden">
+    <div id="gList">
+      <div class="card row between">
+        <div class="row" style="flex:1; min-width:240px"><select id="gSet" style="flex:1"></select><select id="gStatus" style="width:auto">
+          <option value="">전체 상태</option><option>미채점</option><option>AI 초안</option><option>검토 중</option><option>공개</option></select></div>
+        <button class="plain" id="gReload">새로고침</button>
+      </div>
+      <div id="gRows"></div>
+    </div>
+    <div id="gDetail" class="hidden"></div>
+   </div>
   </section>
 </main>
 
@@ -98,7 +128,7 @@ async function apiPost(payload) {
         if (!d.ok) throw Object.assign(new Error(d.error), { server: true }); return d; }
   catch (e) { if (e.server) throw e; }
   await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 60; i++) {
     await sleep(1500);
     try { const d = await fetch(`${API_URL}?action=status&id=${payload.reqId}`, { cache: 'no-store' }).then(r => r.json());
           if (d.ok) return d; if (d.error) throw Object.assign(new Error(d.error), { server: true }); }
@@ -122,6 +152,7 @@ $('btnLogin').onclick = () => busy($('btnLogin'), '확인 중…', async () => {
   await reload();
   try { sessionStorage.setItem('tkey', KEY); } catch (_) {}
   $('vLogin').classList.add('hidden'); $('vMain').classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 });
 $('key').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
 try { const k = sessionStorage.getItem('tkey'); if (k) { $('key').value = k; $('btnLogin').click(); } } catch (_) {}
@@ -396,6 +427,130 @@ function b64ToBlob(b64, mime) {
   const bin = atob(b64), u = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
   return new Blob([u], { type: mime });
+}
+
+/* ======================= 채점 ======================= */
+let GA = [], GCUR = null;
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $('tabAuthor').classList.toggle('hidden', t !== 'author'); $('tabGrade').classList.toggle('hidden', t !== 'grade');
+  if (t === 'grade') { fillSetFilter(); showList(); loadAttempts(); }
+}
+function fillSetFilter() {
+  const sel = $('gSet'), cur = sel.value; sel.innerHTML = '<option value="">전체 차수</option>';
+  SETS.forEach(s => sel.add(new Option(`${s.id} · ${s.title}`, s.id))); sel.value = cur;
+}
+$('gSet').onchange = renderAttempts; $('gStatus').onchange = renderAttempts;
+$('gReload').onclick = () => busy($('gReload'), '불러오는 중…', loadAttempts);
+async function loadAttempts() { GA = (await apiGet({ action: 'tattempts', key: KEY })).attempts; renderAttempts(); }
+const pillCls = g => 'pill ' + (g === '미채점' ? 'st-미채점' : g === 'AI 초안' ? 'st-ai' : g === '검토 중' ? 'st-검토' : 'st-공개');
+function renderAttempts() {
+  const set = $('gSet').value, st = $('gStatus').value;
+  const list = GA.filter(a => (!set || a.setId === set) && (!st || a.grade === st));
+  $('gRows').innerHTML = list.length ? '' : '<div class="card sub">응시 기록이 없습니다.</div>';
+  list.forEach(a => {
+    const el = document.createElement('div'); el.className = 'card arow';
+    el.innerHTML = `<div><b>${esc(a.name)}</b> <span class="hint">${esc(a.sid)}</span><div class="hint">${esc(a.setTitle)} · ${esc(a.start)} · 답변 ${a.answers}개${a.status && a.status !== '완료' ? ' · ' + esc(a.status) : ''}</div></div>
+      <div style="text-align:right"><span class="${pillCls(a.grade)}">${esc(a.grade)}</span>${a.band ? `<div class="hint" style="margin-top:4px">Band ${esc(a.band)}</div>` : ''}</div>`;
+    el.onclick = () => openAttempt(a.attemptId);
+    $('gRows').appendChild(el);
+  });
+}
+function showList() { $('gList').classList.remove('hidden'); $('gDetail').classList.add('hidden'); }
+async function openAttempt(id) {
+  try { const d = await apiGet({ action: 'tattempt', key: KEY, id }); renderDetail(d); }
+  catch (e) { toast(e.message, true); }
+}
+
+function overallBand(arr) {
+  const v = arr.map(Number).filter(n => !isNaN(n) && n > 0); if (v.length < 4) return '';
+  return String(Math.floor(v.reduce((s, n) => s + n, 0) / 4 * 2 + 0.5) / 2);
+}
+
+function renderDetail(d) {
+  GCUR = d; const a = d.attempt;
+  $('gList').classList.add('hidden'); const box = $('gDetail'); box.classList.remove('hidden'); window.scrollTo(0, 0);
+  const hasDraft = d.answers.some(x => x.aiTranscript || x.aiNotes);
+  box.innerHTML = `
+    <div class="row between" style="margin-bottom:10px"><button class="plain" data-back>← 목록</button><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></div>
+    <div class="card"><h2>${esc(a.name)} <span class="hint">${esc(a.sid)}</span></h2>
+      <div class="hint">${esc(a.setTitle)} · ${esc(a.start)}${a.end ? ' ~ ' + esc(a.end.slice(11)) : ''} · ${esc(a.status || '')}</div>
+      <div class="row" style="margin-top:12px"><button data-ai>🤖 AI 초안 ${hasDraft ? '다시 ' : ''}만들기</button>
+        ${hasDraft ? '<label class="switch"><input type="checkbox" data-ow> 학생 피드백도 새 초안으로 덮어쓰기</label>' : ''}
+        <span class="hint" data-prog></span></div>
+      <p class="hint" style="margin:8px 0 0">AI는 녹음과 질문만 받고, 이름·학번은 보내지 않습니다. 초안은 학생에게 바로 보이지 않아요. 검토 후 ‘학생에게 공개’를 눌러야 공개됩니다.</p>
+    </div>
+    <div class="card teacher-only"><div class="row between"><h2>Band (교사 전용 · 학생에게 보이지 않음)</h2></div>
+      <div class="bands" style="margin-top:10px">
+        ${[['fc', 'FC'], ['lr', 'LR'], ['gra', 'GRA'], ['p', 'P']].map(([k, l]) => `<div><label>${l}</label><input type="number" step="0.5" min="0" max="9" data-band="${k}" value="${esc(a.bands[k])}"></div>`).join('')}
+        <div><label>전체</label><input type="number" step="0.5" min="0" max="9" data-band="overall" value="${esc(a.bands.overall)}"></div>
+      </div>
+      <p class="hint">FC 유창성·일관성 · LR 어휘 · GRA 문법 · P 발음. 4개 기준을 바꾸면 전체가 IELTS 방식(0.5 단위 반올림)으로 다시 계산됩니다.</p>
+      ${a.rationale ? `<details open><summary>AI 판단 근거</summary><div class="tbox" style="margin-top:6px">${esc(a.rationale)}</div></details>` : ''}
+    </div>
+    <div data-answers></div>
+    <div class="card"><h2>종합 피드백 (학생용)</h2>
+      <textarea data-summary rows="8" style="margin-top:8px" placeholder="AI 초안을 만들면 여기에 채워집니다. 자유롭게 고치세요.">${esc(a.teacherSummary)}</textarea></div>
+    <div class="sticky"><button class="plain" data-save>임시 저장</button>
+      ${a.published ? '<button class="danger" data-unpub>공개 취소</button><button data-pub>수정 내용 공개</button>' : '<button data-pub>학생에게 공개</button>'}</div>`;
+  const f = n => box.querySelector(`[data-${n}]`);
+  f('back').onclick = () => { showList(); loadAttempts().catch(() => {}); };
+  box.querySelectorAll('[data-band]').forEach(inp => inp.oninput = () => {
+    if (inp.dataset.band !== 'overall') f('band="overall"').value = overallBand(['fc', 'lr', 'gra', 'p'].map(k => f(`band="${k}"`).value));
+  });
+  const ansBox = f('answers');
+  d.answers.forEach(x => ansBox.appendChild(answerCard(x)));
+  f('save').onclick = () => busy(f('save'), '저장 중…', async () => { renderDetail(await saveGrade(a.published)); toast('저장했어요.'); });
+  f('pub').onclick = () => busy(f('pub'), '공개 중…', async () => { renderDetail(await saveGrade(true)); toast('학생에게 공개했어요.'); });
+  if (f('unpub')) f('unpub').onclick = () => busy(f('unpub'), '처리 중…', async () => { renderDetail(await saveGrade(false)); toast('공개를 취소했어요.'); });
+  f('ai').onclick = () => busy(f('ai'), 'AI 분석 중…', () => runAi(f('ow') ? f('ow').checked : false, f('prog')));
+}
+
+function answerCard(x) {
+  const el = document.createElement('div'); el.className = 'card'; el.dataset.part = x.part; el.dataset.order = x.order;
+  el.innerHTML = `
+    <div class="row between"><span class="tag">P${x.part}-${x.order}</span><span class="hint">${esc(x.duration)}초${Number(x.peak) < 0.02 ? ' · ⚠ 소리 거의 없음' : ''}</span></div>
+    <div class="qtext">${esc(x.question)}</div>
+    <div class="row" style="margin-top:6px"><button class="plain" data-listen>▶ 학생 녹음 듣기</button></div><div data-player></div>
+    <label class="f">AI 전사</label><div class="tbox" data-tr>${x.aiTranscript ? esc(x.aiTranscript) : '<span class="hint">아직 없음</span>'}</div>
+    <details data-notesw ${x.aiNotes ? '' : 'class="hidden"'}><summary>AI 메모 (교사용)</summary><div class="tbox" style="margin-top:6px" data-notes>${esc(x.aiNotes)}</div></details>
+    <label class="f">학생에게 줄 피드백</label><textarea rows="7" data-fb placeholder="AI 초안을 만들면 채워집니다.">${esc(x.teacherFeedback)}</textarea>`;
+  const f = n => el.querySelector(`[data-${n}]`);
+  f('listen').onclick = () => busy(f('listen'), '불러오는 중…', async () => {
+    const d = await apiGet({ action: 'tanswerAudio', key: KEY, fileId: x.fileId });
+    f('player').innerHTML = `<audio controls autoplay src="${URL.createObjectURL(b64ToBlob(d.data, d.mime))}"></audio>`;
+  });
+  el._update = r => {
+    f('tr').textContent = r.aiTranscript || '(인식된 발화 없음)';
+    f('notes').textContent = r.aiNotes || ''; f('notesw').classList.toggle('hidden', !r.aiNotes);
+    if (r.teacherFeedback != null) f('fb').value = r.teacherFeedback;
+  };
+  return el;
+}
+
+function collect() {
+  const box = $('gDetail'); const v = k => box.querySelector(`[data-band="${k}"]`).value;
+  return {
+    answers: [...box.querySelectorAll('[data-answers] > .card')].map(c => ({ part: +c.dataset.part, order: +c.dataset.order, teacherFeedback: c.querySelector('[data-fb]').value })),
+    overall: { fc: v('fc'), lr: v('lr'), gra: v('gra'), p: v('p'), overall: v('overall'), teacherSummary: box.querySelector('[data-summary]').value }
+  };
+}
+async function saveGrade(publish) {
+  return apiPost({ action: 'gradeSave', attemptId: GCUR.attempt.attemptId, publish, ...collect() });
+}
+async function runAi(overwrite, prog) {
+  const a = GCUR.attempt;
+  await saveGrade(a.published);                         // 지금까지 고친 내용 먼저 저장
+  const cards = [...$('gDetail').querySelectorAll('[data-answers] > .card')];
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i]; prog.textContent = `문항 ${i + 1}/${cards.length} 분석 중… (문항당 10~30초)`;
+    c.style.borderColor = 'var(--accent)';
+    const r = await apiPost({ action: 'aiAnswer', attemptId: a.attemptId, part: +c.dataset.part, order: +c.dataset.order, overwrite });
+    c._update(r); c.style.borderColor = '';
+  }
+  prog.textContent = '종합 평가 작성 중…';
+  const d = await apiPost({ action: 'aiOverall', attemptId: a.attemptId, overwrite });
+  renderDetail(d); toast('AI 초안을 만들었어요. 검토 후 공개하세요.');
 }
 </script>
 </body>
