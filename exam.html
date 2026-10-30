@@ -33,6 +33,7 @@
   .progress { height: 4px; background: var(--line); border-radius: 2px; margin-bottom: 14px; overflow:hidden; }
   .progress > div { height:100%; background: var(--accent); width:0; transition: width .3s; }
   .video-wrap { position:relative; width:100%; aspect-ratio: 16/9; background:#000; border-radius: 10px; overflow:hidden; margin-bottom: 12px; }
+  .video-wrap video { position:absolute; inset:0; width:100%; height:100%; object-fit: contain; background:#000; }
   .video-wrap iframe, .video-wrap #yt { position:absolute; inset:0; width:100%; height:100%; }
   .tap { position:absolute; inset:0; display:grid; place-items:center; background: rgba(0,0,0,.55); color:#fff; font-size: 18px; font-weight:600; cursor:pointer; }
   .qtext { font-size: 20px; line-height: 1.5; margin: 6px 0 10px; }
@@ -111,6 +112,7 @@
     <div class="progress"><div id="prog"></div></div>
     <div class="card">
       <div class="video-wrap hidden" id="videoWrap"><div id="yt"></div><div class="tap hidden" id="tapPlay">▶ 눌러서 질문 재생</div></div>
+      <div class="video-wrap hidden" id="fvWrap"><video id="fv" playsinline webkit-playsinline preload="auto"></video><div class="tap hidden" id="tapFv">▶ 눌러서 질문 재생</div></div>
       <div id="listening" class="listen hidden">🔊 질문을 잘 들으세요…</div>
       <div id="qText" class="qtext"></div>
       <div id="cue" class="cue hidden"></div>
@@ -233,6 +235,7 @@ async function loadExam(setId) {
     $('setTitle').textContent = d.set.title;
     $('guide').textContent = d.set.guide || '';
     if (S.questions.some(q => q.video)) loadYouTubeApi();
+    prefetchVideos();   // 영상 파일은 시험 진행 중 뒤에서 받음
     show('vReady');
   } catch (e) {
     msg($('setsMsg'), 'bad', (e.server || /질문 음성/.test(e.message)) ? e.message + ' 다시 눌러 주세요.' : '문항을 불러오지 못했습니다. 다시 눌러 주세요.');
@@ -326,6 +329,43 @@ async function playAudio(arrayBuf) {
     });
   } catch (e) { return false; }
 }
+/* 영상 파일: 순서대로 하나씩 받아 두기 (크기가 커서 백그라운드) */
+function prefetchVideos() {
+  let chain = Promise.resolve();
+  S.questions.filter(q => q.videoFileId && !q.videoPromise).forEach(q => {
+    q.videoPromise = chain = chain.then(async () => {
+      for (let a = 1; a <= 3; a++) {
+        try {
+          const d = await apiGet({ action: 'qaudio', sid: S.sid, code: S.code, id: q.videoFileId });
+          const bin = atob(d.data), u = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+          return URL.createObjectURL(new Blob([u], { type: d.mime || 'video/mp4' }));
+        } catch (e) { await sleep(1500 * a); }
+      }
+      return null;
+    });
+  });
+}
+/* 영상 파일 재생: 끝나면 true, 실패하면 false */
+async function playFileVideo(q) {
+  $('listening').textContent = '🎞 질문 영상을 준비하는 중…'; vis('listening', true);
+  const url = await Promise.race([q.videoPromise, sleep(60000).then(() => null)]);
+  vis('listening', false); $('listening').textContent = '🔊 질문을 잘 들으세요…';
+  if (!url) return false;
+  const v = $('fv'); v.src = url; v.currentTime = 0; vis('fvWrap', true);
+  return new Promise(resolve => {
+    let started = false, finished = false;
+    const done = ok => { if (finished) return; finished = true; v.onended = v.onerror = v.onplaying = null; vis('tapFv', false); vis('fvWrap', false); v.pause(); resolve(ok); };
+    v.onplaying = () => { started = true; vis('tapFv', false); };
+    v.onended = () => done(true);
+    v.onerror = () => done(false);
+    const tryPlay = () => v.play().catch(() => vis('tapFv', true));   // 자동재생이 막히면 탭 안내
+    $('tapFv').onclick = tryPlay;
+    tryPlay();
+    setTimeout(() => { if (!started && !finished) done(false); }, 30000);
+  });
+}
+
 /* 영상·음성이 없을 때: 질문 글자를 읽을 시간 */
 function readingTime(text) { return Math.min(15, 3 + Math.ceil(text.split(/\s+/).length * 0.4)); }
 
@@ -475,15 +515,16 @@ async function runExam() {
     show('vQ');
     $('qLabel').textContent = `Part ${q.part} · 문항 ${S.idx + 1}/${total}`;
     $('prog').style.width = (S.idx / total * 100) + '%';
-    ['cue', 'memoWrap', 'timer', 'qMeter', 'btnEnd', 'btnSkipPrep', 'videoWrap'].forEach(id => vis(id, false));
+    ['cue', 'memoWrap', 'timer', 'qMeter', 'btnEnd', 'btnSkipPrep', 'videoWrap', 'fvWrap'].forEach(id => vis(id, false));
     setPhase('', '');
     const showText = S.set.showText || q.longTurn;
     $('qText').textContent = showText ? q.text : '';
     if (q.longTurn) { $('cue').textContent = q.cue; vis('cue', true); $('memo').value = ''; }
 
-    // 질문 제시: 영상 → 교사 녹음 음성 → 글자만 표시
+    // 질문 제시: YouTube → 영상 파일 → 교사 녹음 음성 → 글자만 표시
     let played = false;
     if (q.video) played = await playVideo(q.video);
+    if (!played && q.videoFileId) played = await playFileVideo(q);
     if (!played && q.audioBuf) { vis('listening', true); played = await playAudio(q.audioBuf); vis('listening', false); }
     if (!played) {
       $('qText').textContent = q.text;                // 들려줄 수단이 없으면 글자로 보여줌
