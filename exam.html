@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IELTS Speaking 모의고사</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e4e7ec;
+          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --accent:#2f5bd3; --rec:#d92d20; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 18px; margin: 0 0 10px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 14px; }
+  label { font-size: 14px; color: var(--muted); display:block; margin: 10px 0 6px; }
+  input[type=text], input[type=password], textarea { width:100%; padding: 12px; font-size: 16px; border:1px solid var(--line); border-radius: 8px; font-family: inherit; }
+  button { appearance:none; border:0; border-radius: 10px; padding: 14px 18px; font-size: 16px; font-weight: 600;
+           background: var(--accent); color:#fff; width:100%; cursor:pointer; margin-top: 12px; }
+  button.secondary { background:#eef2fb; color: var(--accent); }
+  button.stop { background: var(--ink); }
+  button:disabled { opacity: .45; cursor: default; }
+  .msg { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; white-space: pre-line; }
+  .msg.ok { background:#e8f6ef; color: var(--ok); } .msg.warn { background:#fff4e5; color: var(--warn); } .msg.bad { background:#fdecea; color: var(--bad); }
+  .hidden { display:none !important; }
+  .setlist button { text-align:left; background:#fff; color: var(--ink); border:1px solid var(--line); font-weight:500; }
+  .setlist button small { color: var(--muted); display:block; font-weight: 400; }
+  .meter { height: 12px; background:#eef0f4; border-radius: 6px; overflow:hidden; margin: 10px 0; }
+  .meter > div { height:100%; width:0; background: var(--ok); transition: width .06s linear; }
+  /* 시험 화면 */
+  .topbar { display:flex; justify-content:space-between; align-items:center; font-size:14px; color: var(--muted); margin-bottom: 8px; }
+  .progress { height: 4px; background: var(--line); border-radius: 2px; margin-bottom: 14px; overflow:hidden; }
+  .progress > div { height:100%; background: var(--accent); width:0; transition: width .3s; }
+  .video-wrap { position:relative; width:100%; aspect-ratio: 16/9; background:#000; border-radius: 10px; overflow:hidden; margin-bottom: 12px; }
+  .video-wrap iframe, .video-wrap #yt { position:absolute; inset:0; width:100%; height:100%; }
+  .tap { position:absolute; inset:0; display:grid; place-items:center; background: rgba(0,0,0,.55); color:#fff; font-size: 18px; font-weight:600; cursor:pointer; }
+  .qtext { font-size: 20px; line-height: 1.5; margin: 6px 0 10px; }
+  .cue { background:#fffbea; border:1px solid #f5e3a3; border-radius: 10px; padding: 14px 16px; white-space: pre-line; margin-bottom: 10px; }
+  .phase { display:flex; align-items:center; gap:8px; font-weight:600; margin-top: 6px; }
+  .dot { width:12px; height:12px; border-radius:50%; background: var(--muted); }
+  .phase.rec .dot { background: var(--rec); animation: blink 1s infinite; } .phase.rec { color: var(--rec); }
+  .phase.prep { color: var(--warn); } .phase.prep .dot { background: var(--warn); }
+  @keyframes blink { 50% { opacity: .25; } }
+  .timer { font-size: 44px; font-weight: 700; text-align:center; font-variant-numeric: tabular-nums; margin: 4px 0; }
+  .listen { text-align:center; color: var(--muted); padding: 18px 0; font-size: 18px; }
+  table { width:100%; border-collapse: collapse; font-size: 14px; }
+  td, th { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align:left; }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- 1. 로그인 -->
+  <section id="vLogin">
+    <h1>IELTS Speaking 모의고사</h1>
+    <p class="sub">학번과 선생님께 받은 코드를 입력하세요.</p>
+    <div class="card">
+      <label for="sid">학번</label><input type="text" id="sid" inputmode="numeric" autocomplete="off">
+      <label for="code">코드</label><input type="password" id="code" inputmode="numeric" autocomplete="off">
+      <button id="btnLogin">로그인</button>
+      <div id="loginMsg" class="msg hidden"></div>
+    </div>
+  </section>
+
+  <!-- 2. 차수 선택 -->
+  <section id="vSets" class="hidden">
+    <h1 id="hello"></h1>
+    <p class="sub">응시할 모의고사를 고르세요.</p>
+    <div class="card setlist" id="setList"></div>
+    <div id="setsMsg" class="msg hidden"></div>
+  </section>
+
+  <!-- 3. 안내 + 마이크 확인 -->
+  <section id="vReady" class="hidden">
+    <h1 id="setTitle"></h1>
+    <div class="card">
+      <h2>시작 전 안내</h2>
+      <div id="guide" style="white-space:pre-line"></div>
+      <ul style="padding-left:18px; margin: 10px 0 0; color: var(--muted); font-size: 14px">
+        <li>질문을 들은 뒤 <b>“삐”</b> 소리가 나면 녹음이 시작됩니다.</li>
+        <li>일찍 끝나면 <b>답변 종료</b>를 눌러 다음 문항으로 넘어갈 수 있어요.</li>
+        <li>Part 2는 1분 준비(메모 가능) 후 최대 2분 동안 말합니다.</li>
+        <li>시험 중에는 페이지를 닫거나 새로고침하지 마세요.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>마이크 확인</h2>
+      <button id="btnMic">마이크 켜기</button>
+      <div id="micArea" class="hidden">
+        <p class="sub" style="margin:10px 0 0">아무 말이나 해보세요. 막대가 움직이면 정상입니다.</p>
+        <div class="meter"><div id="micLevel"></div></div>
+        <button id="btnStart">시험 시작</button>
+      </div>
+      <div id="micMsg" class="msg hidden"></div>
+    </div>
+  </section>
+
+  <!-- 4. Part 시작 안내 -->
+  <section id="vPart" class="hidden">
+    <div class="card" style="text-align:center">
+      <h1 id="partTitle"></h1>
+      <p id="partDesc" class="sub" style="margin:8px 0 0"></p>
+      <button id="btnPart">시작</button>
+    </div>
+  </section>
+
+  <!-- 5. 문항 진행 -->
+  <section id="vQ" class="hidden">
+    <div class="topbar"><span id="qLabel"></span><span id="upState"></span></div>
+    <div class="progress"><div id="prog"></div></div>
+    <div class="card">
+      <div class="video-wrap hidden" id="videoWrap"><div id="yt"></div><div class="tap hidden" id="tapPlay">▶ 눌러서 질문 재생</div></div>
+      <div id="listening" class="listen hidden">🔊 질문을 듣고 있어요…</div>
+      <div id="qText" class="qtext"></div>
+      <div id="cue" class="cue hidden"></div>
+      <div id="memoWrap" class="hidden"><label for="memo">메모 (제출되지 않아요)</label><textarea id="memo" rows="4"></textarea></div>
+      <div id="phase" class="phase hidden"><span class="dot"></span><span id="phaseText"></span></div>
+      <div id="timer" class="timer hidden"></div>
+      <div class="meter hidden" id="qMeter"><div id="qLevel"></div></div>
+      <button id="btnEnd" class="stop hidden">답변 종료</button>
+      <button id="btnSkipPrep" class="secondary hidden">준비 끝, 바로 말하기</button>
+    </div>
+  </section>
+
+  <!-- 6. 종료 -->
+  <section id="vDone" class="hidden">
+    <h1>시험이 끝났습니다</h1>
+    <p class="sub" id="doneSub">답변을 제출하고 있어요. 이 화면을 닫지 마세요.</p>
+    <div class="card"><table><thead><tr><th>문항</th><th>길이</th><th>상태</th></tr></thead><tbody id="upTable"></tbody></table>
+      <button id="btnRetryAll" class="hidden">실패한 답변 다시 보내기</button>
+      <button id="btnSaveLocal" class="secondary hidden">실패한 답변을 기기에 저장</button>
+      <div id="doneMsg" class="msg hidden"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ================= 설정 ================= */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
+const TARGET_RATE = 16000;
+const MIN_ANSWER_SEC = 3;            // 답변 종료 버튼 활성화까지 최소 시간
+
+/* ================= 공통 ================= */
+const $ = id => document.getElementById(id);
+const UA = navigator.userAgent;
+const isIPad = /iPad/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+const device = isIPad ? 'iPad' : /Android/.test(UA) ? 'Android' : /Macintosh/.test(UA) ? 'Mac' : /Windows/.test(UA) ? 'Windows' : 'Other';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function show(view) {
+  ['vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone'].forEach(v => $(v).classList.toggle('hidden', v !== view));
+  window.scrollTo(0, 0);
+}
+function msg(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text; }
+function vis(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
+
+async function apiGet(params) {
+  const qs = new URLSearchParams(params).toString();
+  const r = await fetch(`${API_URL}?${qs}`, { cache: 'no-store' });
+  const d = await r.json();
+  if (!d.ok) throw Object.assign(new Error(d.error || '서버 오류'), { server: true });
+  return d;
+}
+
+/* POST: 일반 전송 → 실패 시 no-cors 전송 후 status로 확인 */
+async function apiPost(payload) {
+  payload.reqId = payload.reqId || rid();
+  const body = JSON.stringify(payload);
+  try {
+    const r = await fetch(API_URL, { method: 'POST', body });
+    const d = await r.json();
+    if (!d.ok) throw Object.assign(new Error(d.error), { server: true });
+    return d;
+  } catch (e) { if (e.server) throw e; }
+  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
+  for (let i = 0; i < 10; i++) {
+    await sleep(1500);
+    try {
+      const d = await fetch(`${API_URL}?action=status&id=${payload.reqId}`, { cache: 'no-store' }).then(r => r.json());
+      if (d.ok) return d;
+      if (d.error) throw Object.assign(new Error(d.error), { server: true });
+    } catch (e) { if (e.server) throw e; }
+  }
+  throw new Error('서버 응답을 확인하지 못했습니다.');
+}
+
+/* ================= 상태 ================= */
+const S = { sid: '', code: '', name: '', set: null, questions: [], attemptId: '', idx: 0 };
+
+/* ================= 1. 로그인 ================= */
+$('btnLogin').onclick = async () => {
+  const sid = $('sid').value.trim(), code = $('code').value.trim();
+  if (!sid || !code) return msg($('loginMsg'), 'warn', '학번과 코드를 입력하세요.');
+  if (API_URL.startsWith('PASTE')) return msg($('loginMsg'), 'bad', 'API_URL이 설정되지 않았습니다 (교사용).');
+  $('btnLogin').disabled = true; msg($('loginMsg'), 'warn', '확인 중…');
+  try {
+    const d = await apiGet({ action: 'sets', sid, code });
+    Object.assign(S, { sid, code, name: d.student.name });
+    try { localStorage.setItem('ielts_sid', sid); } catch (_) {}
+    renderSets(d.sets);
+  } catch (e) {
+    msg($('loginMsg'), 'bad', e.server ? e.message : '서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
+  } finally { $('btnLogin').disabled = false; }
+};
+$('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
+try { $('sid').value = localStorage.getItem('ielts_sid') || ''; } catch (_) {}
+
+/* ================= 2. 차수 선택 ================= */
+function renderSets(sets) {
+  $('hello').textContent = `${S.name} 학생, 안녕하세요`;
+  const box = $('setList'); box.innerHTML = '';
+  if (!sets.length) { box.innerHTML = '<p class="sub" style="margin:0">지금 응시할 수 있는 모의고사가 없습니다.</p>'; }
+  sets.forEach(s => {
+    const b = document.createElement('button');
+    b.innerHTML = `${escapeHtml(s.title)}<small>${s.count}문항</small>`;
+    b.onclick = () => loadExam(s.id);
+    box.appendChild(b);
+  });
+  show('vSets');
+}
+function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+async function loadExam(setId) {
+  msg($('setsMsg'), 'warn', '문항을 불러오는 중…');
+  try {
+    const d = await apiGet({ action: 'exam', sid: S.sid, code: S.code, set: setId });
+    S.set = d.set; S.questions = d.questions;
+    $('setsMsg').className = 'msg hidden';
+    $('setTitle').textContent = d.set.title;
+    $('guide').textContent = d.set.guide || '';
+    if (S.questions.some(q => q.video)) loadYouTubeApi();
+    show('vReady');
+  } catch (e) {
+    msg($('setsMsg'), 'bad', e.server ? e.message : '문항을 불러오지 못했습니다. 다시 눌러 주세요.');
+  }
+}
+
+/* ================= 오디오 엔진 (Web Audio → WAV) ================= */
+const A = { ctx: null, stream: null, proc: null, recording: false, chunks: [], peak: 0, level: 0, rate: 48000 };
+
+async function initAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  A.ctx = new AC();                                   // 사용자 터치 직후 생성 (iPad 필수)
+  if (A.ctx.state === 'suspended') await A.ctx.resume();
+  A.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+  A.rate = A.ctx.sampleRate;
+  const src = A.ctx.createMediaStreamSource(A.stream);
+  A.proc = A.ctx.createScriptProcessor(4096, 1, 1);
+  A.proc.onaudioprocess = ev => {
+    const d = ev.inputBuffer.getChannelData(0);
+    let m = 0; for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > m) m = v; }
+    A.level = m;
+    if (A.recording) { A.chunks.push(new Float32Array(d)); if (m > A.peak) A.peak = m; }
+  };
+  const mute = A.ctx.createGain(); mute.gain.value = 0;
+  src.connect(A.proc); A.proc.connect(mute); mute.connect(A.ctx.destination);
+  A.src = src;
+  setInterval(() => {
+    const w = Math.min(100, A.level * 160) + '%';
+    $('micLevel').style.width = w; $('qLevel').style.width = w;
+  }, 80);
+}
+function startRec() { A.chunks = []; A.peak = 0; A.recording = true; }
+function stopRec() {
+  A.recording = false;
+  let len = 0; A.chunks.forEach(c => len += c.length);
+  const all = new Float32Array(len); let o = 0; A.chunks.forEach(c => { all.set(c, o); o += c.length; });
+  A.chunks = [];
+  const down = downsample(all, A.rate, TARGET_RATE);
+  return { blob: encodeWav(down, TARGET_RATE), duration: Math.round(down.length / TARGET_RATE), peak: Math.round(A.peak * 1000) / 1000 };
+}
+function downsample(buf, from, to) {
+  if (to >= from) return buf;
+  const ratio = from / to, n = Math.floor(buf.length / ratio), out = new Float32Array(n);
+  let pos = 0;
+  for (let i = 0; i < n; i++) { const end = Math.floor((i + 1) * ratio); let s = 0, c = 0; for (; pos < end && pos < buf.length; pos++) { s += buf[pos]; c++; } out[i] = c ? s / c : 0; }
+  return out;
+}
+function encodeWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0, o = 44; i < samples.length; i++, o += 2) { const s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+function beep() {
+  try {
+    const o = A.ctx.createOscillator(), g = A.ctx.createGain();
+    o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(A.ctx.destination);
+    o.start(); o.stop(A.ctx.currentTime + 0.25);
+  } catch (_) {}
+  return sleep(350);
+}
+
+/* ================= TTS ================= */
+let voice = null;
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  voice = vs.find(v => /en-GB/i.test(v.lang) && /Google|Daniel|Serena|Kate|Arthur/i.test(v.name))
+       || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+}
+if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function unlockTTS() { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (_) {} }
+function speak(text) {
+  return new Promise(resolve => {
+    if (!('speechSynthesis' in window)) return resolve();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) u.voice = voice; u.lang = voice ? voice.lang : 'en-GB'; u.rate = 0.95;
+    let done = false; const fin = () => { if (!done) { done = true; resolve(); } };
+    u.onend = fin; u.onerror = fin;
+    setTimeout(fin, 3000 + text.length * 90);       // onend가 안 오는 기기 대비
+    speechSynthesis.speak(u);
+  });
+}
+
+/* ================= YouTube ================= */
+let ytReady = null, ytPlayer = null;
+function loadYouTubeApi() {
+  if (ytReady) return ytReady;
+  ytReady = new Promise(res => {
+    window.onYouTubeIframeAPIReady = res;
+    const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
+    setTimeout(res, 8000);
+  });
+  return ytReady;
+}
+function ytId(url) {
+  const m = String(url).match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+/* 영상이 끝나면 true, 재생 실패 시 false (→ TTS로 대체) */
+async function playVideo(url) {
+  const id = ytId(url);
+  if (!id) return false;
+  await loadYouTubeApi();
+  if (!(window.YT && YT.Player)) return false;
+  vis('videoWrap', true);
+  return new Promise(resolve => {
+    let started = false, finished = false;
+    const done = ok => { if (finished) return; finished = true; vis('tapPlay', false); vis('videoWrap', false); resolve(ok); };
+    const onState = e => {
+      if (e.data === YT.PlayerState.PLAYING) { started = true; vis('tapPlay', false); }
+      if (e.data === YT.PlayerState.ENDED) done(true);
+    };
+    const onError = () => done(false);
+    if (!ytPlayer) {
+      ytPlayer = new YT.Player('yt', {
+        videoId: id, playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, modestbranding: 1 },
+        events: { onReady: e => e.target.playVideo(), onStateChange: e => ytPlayer._h(e), onError: e => ytPlayer._err(e) }
+      });
+    } else {
+      ytPlayer.loadVideoById(id);
+    }
+    ytPlayer._h = onState; ytPlayer._err = onError;
+    $('tapPlay').onclick = () => { try { ytPlayer.playVideo(); } catch (_) {} };
+    setTimeout(() => { if (!started && !finished) vis('tapPlay', true); }, 3500);   // 자동재생 막히면 탭 안내
+    setTimeout(() => { if (!started && !finished) done(false); }, 30000);           // 끝내 재생 안 되면 TTS로
+  });
+}
+
+/* ================= 업로드 큐 ================= */
+const Q = [];   // {label, payload, blob, duration, status}
+let uploading = false;
+function enqueue(item) { Q.push(item); item.status = '대기'; pump(); }
+async function pump() {
+  if (uploading) return; uploading = true;
+  for (const it of Q) {
+    if (it.status === '완료' || it.status === '전송중') continue;
+    if (it.status === '실패' && !it.retry) continue;
+    it.retry = false; it.status = '전송중'; renderUp();
+    for (let a = 1; a <= 3; a++) {
+      try {
+        if (!it.payload.audio) it.payload.audio = await blobToBase64(it.blob);
+        it.payload.reqId = rid();
+        await apiPost(it.payload);
+        it.status = '완료'; break;
+      } catch (e) { it.error = e.message; if (a < 3) await sleep(2000 * a); else it.status = '실패'; }
+    }
+    renderUp();
+  }
+  uploading = false;
+  if (Q.some(it => it.status === '대기' || (it.status === '실패' && it.retry))) pump();
+  else if (examFinished) finalize();
+}
+async function blobToBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer()); let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function renderUp() {
+  const done = Q.filter(i => i.status === '완료').length;
+  $('upState').textContent = Q.length ? `제출 ${done}/${Q.length}` : '';
+  $('upTable').innerHTML = Q.map(i => `<tr><td>${i.label}</td><td>${i.duration}초</td><td class="${i.status === '완료' ? 'ok' : i.status === '실패' ? 'bad' : 'warn'}">${i.status}</td></tr>`).join('');
+}
+
+/* ================= 시험 진행 ================= */
+let examFinished = false;
+const PART_INFO = {
+  1: ['Part 1', '자기소개와 일상적인 주제에 대한 짧은 질문입니다.'],
+  2: ['Part 2', '주제 카드를 보고 1분 동안 준비한 뒤, 최대 2분 동안 말합니다.'],
+  3: ['Part 3', 'Part 2 주제와 관련된 심화 토론 질문입니다.']
+};
+
+$('btnMic').onclick = async () => {
+  $('btnMic').disabled = true;
+  unlockTTS();
+  try {
+    await initAudio();
+    vis('btnMic', false); vis('micArea', true); vis('micMsg', false);
+  } catch (e) {
+    $('btnMic').disabled = false;
+    msg($('micMsg'), 'bad', (e.name === 'NotAllowedError' ? '마이크 권한이 거부되었습니다. 주소창의 사이트 설정에서 마이크를 허용한 뒤 새로고침하세요.' : '마이크를 켤 수 없습니다: ' + (e.message || e.name)));
+  }
+};
+
+$('btnStart').onclick = async () => {
+  unlockTTS();
+  S.attemptId = `${S.set.id}-${S.sid}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 5)}`;
+  window.onbeforeunload = () => '시험이 진행 중입니다.';
+  apiPost({ action: 'start', sid: S.sid, code: S.code, setId: S.set.id, attemptId: S.attemptId, device }).catch(() => {});
+  S.idx = 0; runExam();
+};
+
+function waitPartButton(part) {
+  return new Promise(res => {
+    $('partTitle').textContent = PART_INFO[part][0];
+    $('partDesc').textContent = PART_INFO[part][1];
+    show('vPart');
+    $('btnPart').onclick = () => { unlockTTS(); if (A.ctx.state === 'suspended') A.ctx.resume(); res(); };
+  });
+}
+
+/* 타이머: seconds 동안 진행, 버튼(endBtn)으로 조기 종료 가능 */
+function countdown(seconds, endBtn, minSec) {
+  return new Promise(res => {
+    let left = seconds, finished = false;
+    const fin = () => { if (finished) return; finished = true; clearInterval(t); if (endBtn) { vis(endBtn, false); endBtn.onclick = null; } res(); };
+    const draw = () => { $('timer').textContent = `${Math.floor(left / 60)}:${('0' + (left % 60)).slice(-2)}`; };
+    draw(); vis('timer', true);
+    if (endBtn) { vis(endBtn, true); endBtn.disabled = minSec > 0; endBtn.onclick = fin; }
+    let elapsed = 0;
+    const t = setInterval(() => {
+      left--; elapsed++; draw();
+      if (endBtn && elapsed >= minSec) endBtn.disabled = false;
+      if (left <= 0) fin();
+    }, 1000);
+  });
+}
+function setPhase(cls, text) { const p = $('phase'); p.className = 'phase ' + cls; $('phaseText').textContent = text; vis(p, !!text); }
+
+async function runExam() {
+  let lastPart = 0;
+  const total = S.questions.length;
+  for (S.idx = 0; S.idx < total; S.idx++) {
+    const q = S.questions[S.idx];
+    if (q.part !== lastPart) { await waitPartButton(q.part); lastPart = q.part; }
+
+    // 화면 초기화
+    show('vQ');
+    $('qLabel').textContent = `Part ${q.part} · 문항 ${S.idx + 1}/${total}`;
+    $('prog').style.width = (S.idx / total * 100) + '%';
+    ['cue', 'memoWrap', 'timer', 'qMeter', 'btnEnd', 'btnSkipPrep', 'videoWrap'].forEach(id => vis(id, false));
+    setPhase('', '');
+    const showText = S.set.showText || q.longTurn;
+    $('qText').textContent = showText ? q.text : '';
+    if (q.longTurn) { $('cue').textContent = q.cue; vis('cue', true); $('memo').value = ''; }
+
+    // 질문 제시: 영상 → 실패 시 TTS
+    vis('listening', !q.video);
+    let played = false;
+    if (q.video) played = await playVideo(q.video);
+    if (!played) { vis('listening', true); await speak(q.text); }
+    vis('listening', false);
+
+    // Part 2 준비 시간 (녹음 없음)
+    if (q.prep > 0) {
+      vis('memoWrap', true);
+      setPhase('prep', '준비 시간 — 메모하세요');
+      await countdown(q.prep, $('btnSkipPrep'), 0);
+      setPhase('', '');
+    }
+
+    // 답변 녹음
+    await beep();
+    startRec();
+    setPhase('rec', '녹음 중 — 답변하세요');
+    vis('qMeter', true);
+    await countdown(q.answer, $('btnEnd'), MIN_ANSWER_SEC);
+    const rec = stopRec();
+    vis('qMeter', false); setPhase('', '');
+
+    enqueue({
+      label: `P${q.part}-${q.order}`, blob: rec.blob, duration: rec.duration,
+      payload: { action: 'answer', sid: S.sid, code: S.code, setId: S.set.id, attemptId: S.attemptId,
+                 part: q.part, order: q.order, question: q.text, durationSec: rec.duration, peak: rec.peak }
+    });
+    await sleep(600);
+  }
+  $('prog').style.width = '100%';
+  examFinished = true;
+  show('vDone'); renderUp();
+  if (!uploading) finalize();
+}
+
+let finalized = false;
+async function finalize() {
+  const failed = Q.filter(i => i.status === '실패');
+  const pending = Q.filter(i => i.status !== '완료' && i.status !== '실패');
+  if (pending.length) return;
+  vis('btnRetryAll', failed.length > 0); vis('btnSaveLocal', failed.length > 0);
+  if (failed.length) {
+    $('doneSub').textContent = '일부 답변이 제출되지 않았습니다.';
+    msg($('doneMsg'), 'bad', `${failed.length}개 답변을 보내지 못했습니다. 인터넷 연결을 확인하고 “다시 보내기”를 눌러 주세요.\n계속 실패하면 “기기에 저장”으로 파일을 저장해 선생님께 전달하세요.`);
+  } else {
+    $('doneSub').textContent = '모든 답변이 제출되었습니다. 수고했어요!';
+    msg($('doneMsg'), 'ok', '✓ 제출 완료. 이제 창을 닫아도 됩니다.');
+    window.onbeforeunload = null;
+    try { A.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+  }
+  if (!finalized || !failed.length) {
+    finalized = true;
+    apiPost({ action: 'finish', sid: S.sid, code: S.code, attemptId: S.attemptId,
+              count: Q.filter(i => i.status === '완료').length, complete: !failed.length }).catch(() => {});
+  }
+}
+$('btnRetryAll').onclick = () => { Q.forEach(i => { if (i.status === '실패') { i.status = '대기'; } }); vis('doneMsg', false); pump(); };
+$('btnSaveLocal').onclick = () => {
+  Q.filter(i => i.status === '실패').forEach(i => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(i.blob); a.download = `${S.sid}_${S.attemptId}_${i.label}.wav`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+};
+</script>
+</body>
+</html>
