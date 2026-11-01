@@ -3,77 +3,117 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IELTS Speaking 교사용</title>
+<title>CNSA IELTS Speaking · 교사용</title>
+<link rel="icon" href="cnsa-logo.png">
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e4e7ec;
-          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --accent:#2f5bd3; --rec:#d92d20; --soft:#eef2fb; }
+  :root { --navy:#161470; --navy-2:#2b28a0; --navy-soft:#ecebfa; --gold:#fabe0d; --gold-2:#ffd34d; --gold-soft:#fff6d9; --gold-ink:#7a5700;
+          --bg:#f4f5fa; --card:#fff; --ink:#1b1d33; --muted:#6b6f86; --line:#e3e5ef;
+          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --accent:#161470; --rec:#d92d20; --soft:#ecebfa;
+          --shadow: 0 1px 2px rgba(22,20,112,.06), 0 4px 16px rgba(22,20,112,.06); }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink);
-    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 80px; }
-  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 0; }
+    font: 15px/1.55 "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  .topnav { background: var(--navy); color:#fff; display:flex; align-items:center; gap:14px; padding: 10px clamp(16px, 2.5vw, 40px);
+            border-bottom: 4px solid var(--gold); position: sticky; top: 0; z-index: 6; }
+  .topnav img { height: 44px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
+  .brand { display:flex; flex-direction:column; line-height:1.2; } .brand b { font-size: 18px; } .brand span { font-size: 12px; color: var(--gold-2); letter-spacing: 1.5px; }
+  .topnav .tabs { margin: 0 0 0 auto; }
+  main { padding: 22px clamp(16px, 2.5vw, 40px) 80px; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: var(--navy); }
+  h2 { font-size: 17px; margin: 0; color: var(--navy); display:flex; align-items:center; gap: 8px; flex-wrap: wrap; }
   .sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
-  .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
   input[type=text], input[type=password], input[type=number], select, textarea {
-    padding: 9px 11px; font-size: 15px; border:1px solid var(--line); border-radius: 8px; font-family: inherit; width: 100%; background:#fff; }
-  textarea { resize: vertical; }
-  label.f { display:block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
-  button, .btn { appearance:none; border:0; border-radius: 8px; padding: 8px 13px; font-size: 14px; font-weight: 600;
-    background: var(--accent); color:#fff; cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-family: inherit; }
-  .ghost { background: var(--soft); color: var(--accent); }
-  .plain { background: #fff; color: var(--ink); border:1px solid var(--line); }
-  .rec { background: var(--rec); color:#fff; }
-  .danger { background:#fff; color: var(--bad); border:1px solid #f3c4bf; }
+    padding: 10px 12px; font-size: 15px; border:1.5px solid var(--line); border-radius: 10px; font-family: inherit; width: 100%; background:#fff; color: var(--ink); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--navy-2); box-shadow: 0 0 0 3px var(--navy-soft); }
+  textarea { resize: vertical; line-height: 1.6; }
+  label.f { display:block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; font-weight: 600; }
+  button, .btn { appearance:none; border:0; border-radius: 9px; padding: 9px 14px; font-size: 14px; font-weight: 700;
+    background: var(--navy); color:#fff; cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-family: inherit; transition: background .15s; }
+  button:hover, .btn:hover { background: var(--navy-2); }
+  .ghost { background: var(--navy-soft); color: var(--navy); } .ghost:hover { background:#dddcf6; }
+  .gold { background: var(--gold); color: var(--navy); } .gold:hover { background: var(--gold-2); }
+  .plain { background: #fff; color: var(--ink); border:1px solid var(--line); } .plain:hover { background:#f7f7fb; }
+  .rec { background: var(--rec); color:#fff; } .rec:hover { background:#b42318; }
+  .danger { background:#fff; color: var(--bad); border:1px solid #f3c4bf; } .danger:hover { background:#fff5f4; }
   button:disabled { opacity:.45; cursor: default; }
   .row { display:flex; gap:8px; flex-wrap: wrap; align-items:center; }
   .between { justify-content: space-between; }
   .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-  .part { margin: 22px 0 8px; display:flex; justify-content:space-between; align-items:center; }
-  .part h2 small { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; }
-  .tag { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--soft); border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
-  .qtext { font-size: 16px; margin: 6px 0 2px; }
-  .cue { font-size: 13px; color: var(--muted); white-space: pre-line; background:#fffbea; border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
+  .hidden { display:none !important; }
+  .hint { font-size: 12.5px; color: var(--muted); }
+  .switch { display:inline-flex; align-items:center; gap:6px; font-size: 14px; cursor:pointer; font-weight: 600; color: var(--ink); }
+  .switch input { width: 18px; height: 18px; accent-color: var(--navy); }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--navy); color:#fff; border-left: 5px solid var(--gold);
+           padding: 12px 18px; border-radius: 10px; font-size: 14px; z-index: 9; max-width: 90vw; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  .toast.bad { background: var(--bad); border-left-color: #fff; }
+
+  /* 로그인 */
+  .login { max-width: 520px; margin: 8vh auto; text-align:center; }
+  .login img { width: 140px; margin-bottom: 8px; }
+
+  /* 탭 */
+  .tabs { display:flex; gap:4px; background: rgba(255,255,255,.08); padding: 4px; border-radius: 10px; }
+  .tab { background: transparent; color:#d9d8f5; padding: 8px 18px; }
+  .tab:hover { background: rgba(255,255,255,.12); }
+  .tab.on { background: var(--gold); color: var(--navy); }
+
+  /* 출제: Part 3열 */
+  .parts { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .pcol { background: #eceef7; border-radius: 16px; padding: 12px; min-height: 120px; }
+  .part { margin: 2px 2px 12px; display:flex; justify-content:space-between; align-items:center; gap: 8px; flex-wrap: wrap; }
+  .part h2 small { font-weight: 500; color: var(--muted); font-size: 13px; }
+  .pcol .card { margin-bottom: 10px; }
+  .tag { font-size: 12px; font-weight: 800; color: var(--navy); background: var(--gold-soft); border: 1px solid #f3dc8f; border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
+  .qtext { font-size: 16px; margin: 8px 0 2px; font-weight: 600; }
+  .cue { font-size: 13px; color: #4a4e68; white-space: pre-line; background: var(--gold-soft); border-left: 4px solid var(--gold); border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
   .meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
   .badges { display:flex; gap:6px; flex-wrap: wrap; margin: 8px 0; }
-  .badge { font-size: 12px; border-radius: 999px; padding: 2px 10px; background:#e8f6ef; color: var(--ok); }
+  .badge { font-size: 12px; border-radius: 999px; padding: 2px 10px; background:#e6f5ee; color: var(--ok); font-weight: 600; }
   .badge.none { background:#fff4e5; color: var(--warn); }
   .media { border-top: 1px dashed var(--line); margin-top: 10px; padding-top: 10px; }
-  .meter { height: 8px; background:#eef0f4; border-radius: 4px; overflow:hidden; width: 120px; }
+  .meter { height: 8px; background:#eceef6; border-radius: 4px; overflow:hidden; width: 120px; }
   .meter > div { height:100%; width:0; background: var(--rec); }
   audio, video { width: 100%; margin-top: 8px; border-radius: 8px; }
   video { max-height: 280px; background:#000; }
-  .hidden { display:none !important; }
-  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color:#fff;
-           padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 9; max-width: 90vw; }
-  .toast.bad { background: var(--bad); }
-  .switch { display:inline-flex; align-items:center; gap:6px; font-size: 14px; cursor:pointer; }
-  .switch input { width: 18px; height: 18px; }
-  .hint { font-size: 12px; color: var(--muted); }
-  .tabs { display:flex; gap:6px; margin-bottom: 12px; }
-  .tab { background:#fff; color: var(--muted); border:1px solid var(--line); }
-  .tab.on { background: var(--ink); color:#fff; border-color: var(--ink); }
-  .arow { display:grid; grid-template-columns: 1fr auto; gap: 4px 12px; cursor:pointer; }
-  .arow:hover { border-color: var(--accent); }
-  .st-미채점 { background:#f2f4f7; color: var(--muted); } .st-AI.초안, .st-ai { background:#eef2fb; color: var(--accent); }
-  .st-검토 { background:#fff4e5; color: var(--warn); } .st-공개 { background:#e8f6ef; color: var(--ok); }
-  .pill { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
-  .bands { display:grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  .bands label { font-size: 12px; color: var(--muted); display:block; margin-bottom: 2px; }
-  .bands input { text-align:center; font-weight: 700; }
-  .teacher-only { border: 1px dashed #c7d2fe; background: #f8f9ff; }
-  .tbox { background:#f9fafb; border:1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; }
-  details summary { cursor:pointer; font-size: 13px; color: var(--accent); margin-top: 8px; }
-  .sticky { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; display:flex; gap: 8px; flex-wrap: wrap; }
-  @media (max-width: 560px) { .bands { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+  .setbar { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items:center; }
+
+  /* 채점 */
+  .alist { display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .arow { display:grid; grid-template-columns: 1fr auto; gap: 4px 12px; cursor:pointer; margin:0; border-left: 5px solid var(--navy); }
+  .arow:hover { border-color: var(--navy-2); border-left-color: var(--gold); }
+  .pill { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 3px 11px; white-space: nowrap; }
+  .st-미채점 { background:#eef0f5; color: var(--muted); } .st-ai { background: var(--navy-soft); color: var(--navy); }
+  .st-검토 { background:#fff4e5; color: var(--warn); } .st-공개 { background:#e6f5ee; color: var(--ok); }
+  .gd { display:grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 18px; align-items: start; }
+  .gd-side { position: sticky; top: 86px; max-height: calc(100vh - 100px); overflow:auto; padding-bottom: 4px; }
+  .gd-main .alist2 { display:grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 14px; }
+  .gd-main .alist2 .card { margin: 0; }
+  .bands { display:grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .bands label { font-size: 12px; color: var(--muted); display:block; margin-bottom: 2px; text-align:center; font-weight: 700; }
+  .bands input { text-align:center; font-weight: 800; padding: 8px 4px; font-size: 16px; color: var(--navy); }
+  .bands div:last-child input { background: var(--gold-soft); border-color: #f3dc8f; }
+  .teacher-only { border: 1.5px dashed #b9b7ec; background: #fafaff; }
+  .tbox { background:#f8f9fc; border:1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; }
+  details summary { cursor:pointer; font-size: 13px; color: var(--navy); margin-top: 8px; font-weight: 700; }
+  .actions { display:flex; gap: 8px; flex-wrap: wrap; } .actions button { flex: 1; justify-content:center; padding: 11px 14px; }
+  .sticky { display:none; }
+  @media (max-width: 1200px) { .parts { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 980px) { .gd { grid-template-columns: 1fr; } .gd-side { position: static; max-height: none; } }
+  @media (max-width: 760px) { .parts { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } .bands { grid-template-columns: repeat(3, 1fr); } }
 </style>
 </head>
 <body>
+<header class="topnav">
+  <img src="cnsa-logo.png" alt="CNSA">
+  <div class="brand"><b>IELTS Speaking · 교사용</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div>
+  <div class="tabs hidden" id="tabsBar"><button class="tab on" data-tab="author">출제</button><button class="tab" data-tab="grade">채점</button></div>
+</header>
 <main>
-  <h1>IELTS Speaking 교사용</h1>
-  <p class="sub">출제: 차수와 질문, 질문 음성·영상 관리 · 채점: 학생 답변 듣기, AI 초안 검토, 피드백 공개</p>
-
-  <section id="vLogin" class="card">
+  <section id="vLogin" class="login card">
+    <img src="cnsa-logo.png" alt="CNSA">
+    <h1>교사용 페이지</h1>
+    <p class="sub">출제(차수·질문·음성/영상)와 채점(AI 초안 검토·피드백 공개)을 합니다.</p>
     <div class="row">
       <input type="password" id="key" placeholder="교사 키" autocomplete="off" style="flex:1; min-width:160px">
       <button id="btnLogin">들어가기</button>
@@ -81,14 +121,13 @@
   </section>
 
   <section id="vMain" class="hidden">
-    <div class="tabs"><button class="tab on" data-tab="author">출제</button><button class="tab" data-tab="grade">채점</button></div>
    <div id="tabAuthor">
-    <div class="card row between">
-      <div class="row" style="flex:1; min-width: 240px"><select id="setSel" style="flex:1"></select></div>
-      <div class="row"><button class="ghost" id="btnNewSet">+ 새 차수</button><button class="plain" id="btnReload">새로고침</button></div>
+    <div class="card setbar">
+      <select id="setSel"></select>
+      <div class="row"><button class="gold" id="btnNewSet">+ 새 차수</button><button class="plain" id="btnReload">새로고침</button></div>
     </div>
     <div id="setBox"></div>
-    <div id="partsBox"></div>
+    <div id="partsBox" class="parts"></div>
    </div>
    <div id="tabGrade" class="hidden">
     <div id="gList">
@@ -97,7 +136,7 @@
           <option value="">전체 상태</option><option>미채점</option><option>AI 초안</option><option>검토 중</option><option>공개</option></select></div>
         <button class="plain" id="gReload">새로고침</button>
       </div>
-      <div id="gRows"></div>
+      <div id="gRows" class="alist"></div>
     </div>
     <div id="gDetail" class="hidden"></div>
    </div>
@@ -151,7 +190,7 @@ $('btnLogin').onclick = () => busy($('btnLogin'), '확인 중…', async () => {
   KEY = $('key').value.trim();
   await reload();
   try { sessionStorage.setItem('tkey', KEY); } catch (_) {}
-  $('vLogin').classList.add('hidden'); $('vMain').classList.remove('hidden');
+  $('vLogin').classList.add('hidden'); $('vMain').classList.remove('hidden'); $('tabsBar').classList.remove('hidden');
   document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 });
 $('key').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
@@ -223,11 +262,12 @@ function renderParts() {
   const s = SETS.find(x => x.id === CUR); if (!s) return;
   [1, 2, 3].forEach(p => {
     const qs = s.questions.filter(q => q.part === p);
+    const col = document.createElement('div'); col.className = 'pcol'; box.appendChild(col);
     const head = document.createElement('div'); head.className = 'part';
     head.innerHTML = `<h2>Part ${p}<small>${PART_DESC[p]} · ${qs.length}문항</small></h2>`;
-    const add = document.createElement('button'); add.className = 'ghost'; add.textContent = `+ Part ${p} 문항 추가`;
-    head.appendChild(add); box.appendChild(head);
-    const list = document.createElement('div'); box.appendChild(list);
+    const add = document.createElement('button'); add.className = 'gold'; add.textContent = `+ 문항 추가`;
+    head.appendChild(add); col.appendChild(head);
+    const list = document.createElement('div'); col.appendChild(list);
     qs.forEach((q, i) => list.appendChild(questionCard(s, q, i, qs.length)));
     add.onclick = () => { const f = editForm(s, { part: p, cue: '' }, null); list.appendChild(f); f.querySelector('[data-text]').focus(); add.disabled = true; f._onClose = () => add.disabled = false; };
   });
@@ -472,7 +512,8 @@ function renderDetail(d) {
   $('gList').classList.add('hidden'); const box = $('gDetail'); box.classList.remove('hidden'); window.scrollTo(0, 0);
   const hasDraft = d.answers.some(x => x.aiTranscript || x.aiNotes);
   box.innerHTML = `
-    <div class="row between" style="margin-bottom:10px"><button class="plain" data-back>← 목록</button><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></div>
+    <div class="row between" style="margin-bottom:12px"><button class="plain" data-back>← 목록</button><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></div>
+   <div class="gd"><div class="gd-main">
     <div class="card"><h2>${esc(a.name)} <span class="hint">${esc(a.sid)}</span></h2>
       <div class="hint">${esc(a.setTitle)} · ${esc(a.start)}${a.end ? ' ~ ' + esc(a.end.slice(11)) : ''} · ${esc(a.status || '')}</div>
       <div class="row" style="margin-top:12px"><button data-ai>🤖 AI 초안 ${hasDraft ? '다시 ' : ''}만들기</button>
@@ -480,6 +521,8 @@ function renderDetail(d) {
         <span class="hint" data-prog></span></div>
       <p class="hint" style="margin:8px 0 0">AI는 녹음과 질문만 받고, 이름·학번은 보내지 않습니다. 초안은 학생에게 바로 보이지 않아요. 검토 후 ‘학생에게 공개’를 눌러야 공개됩니다.</p>
     </div>
+    <div data-answers class="alist2"></div>
+   </div><aside class="gd-side">
     <div class="card teacher-only"><div class="row between"><h2>Band (교사 전용 · 학생에게 보이지 않음)</h2></div>
       <div class="bands" style="margin-top:10px">
         ${[['fc', 'FC'], ['lr', 'LR'], ['gra', 'GRA'], ['p', 'P']].map(([k, l]) => `<div><label>${l}</label><input type="number" step="0.5" min="0" max="9" data-band="${k}" value="${esc(a.bands[k])}"></div>`).join('')}
@@ -488,11 +531,11 @@ function renderDetail(d) {
       <p class="hint">FC 유창성·일관성 · LR 어휘 · GRA 문법 · P 발음. 4개 기준을 바꾸면 전체가 IELTS 방식(0.5 단위 반올림)으로 다시 계산됩니다.</p>
       ${a.rationale ? `<details open><summary>AI 판단 근거</summary><div class="tbox" style="margin-top:6px">${esc(a.rationale)}</div></details>` : ''}
     </div>
-    <div data-answers></div>
     <div class="card"><h2>종합 피드백 (학생용)</h2>
-      <textarea data-summary rows="8" style="margin-top:8px" placeholder="AI 초안을 만들면 여기에 채워집니다. 자유롭게 고치세요.">${esc(a.teacherSummary)}</textarea></div>
-    <div class="sticky"><button class="plain" data-save>임시 저장</button>
-      ${a.published ? '<button class="danger" data-unpub>공개 취소</button><button data-pub>수정 내용 공개</button>' : '<button data-pub>학생에게 공개</button>'}</div>`;
+      <textarea data-summary rows="10" style="margin-top:8px" placeholder="AI 초안을 만들면 여기에 채워집니다. 자유롭게 고치세요.">${esc(a.teacherSummary)}</textarea>
+      <div class="actions" style="margin-top:12px"><button class="plain" data-save>임시 저장</button>
+        ${a.published ? '<button class="danger" data-unpub>공개 취소</button><button class="gold" data-pub>수정 내용 공개</button>' : '<button class="gold" data-pub>학생에게 공개</button>'}</div></div>
+   </aside></div>`;
   const f = n => box.querySelector(`[data-${n}]`);
   f('back').onclick = () => { showList(); loadAttempts().catch(() => {}); };
   box.querySelectorAll('[data-band]').forEach(inp => inp.oninput = () => {

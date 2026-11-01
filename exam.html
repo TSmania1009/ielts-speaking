@@ -3,122 +3,207 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IELTS Speaking 모의고사</title>
+<title>CNSA IELTS Speaking</title>
+<link rel="icon" href="cnsa-logo.png">
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e4e7ec;
-          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --accent:#2f5bd3; --rec:#d92d20; }
+  :root {
+    --navy:#161470; --navy-2:#2b28a0; --navy-soft:#ecebfa; --gold:#fabe0d; --gold-2:#ffd34d; --gold-soft:#fff6d9; --gold-ink:#7a5700;
+    --bg:#f4f5fa; --card:#fff; --ink:#1b1d33; --muted:#6b6f86; --line:#e3e5ef;
+    --ok:#12805c; --ok-soft:#e6f5ee; --warn:#b54708; --warn-soft:#fff4e5; --bad:#c0362c; --bad-soft:#fdecea; --rec:#d92d20;
+    --radius:14px; --shadow: 0 1px 2px rgba(22,20,112,.06), 0 4px 16px rgba(22,20,112,.06);
+  }
   * { box-sizing: border-box; }
   html, body { margin:0; background:var(--bg); color:var(--ink);
-    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
-  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 18px; margin: 0 0 10px; }
-  .sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
-  .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 14px; }
-  label { font-size: 14px; color: var(--muted); display:block; margin: 10px 0 6px; }
-  input[type=text], input[type=password], textarea { width:100%; padding: 12px; font-size: 16px; border:1px solid var(--line); border-radius: 8px; font-family: inherit; }
-  button { appearance:none; border:0; border-radius: 10px; padding: 14px 18px; font-size: 16px; font-weight: 600;
-           background: var(--accent); color:#fff; width:100%; cursor:pointer; margin-top: 12px; }
-  button.secondary { background:#eef2fb; color: var(--accent); }
+    font: 16px/1.6 "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  /* 상단 바 */
+  .topnav { background: var(--navy); color:#fff; display:flex; align-items:center; gap:14px; padding: 10px clamp(16px, 3vw, 48px);
+            border-bottom: 4px solid var(--gold); position: sticky; top:0; z-index: 5; }
+  .topnav img { height: 44px; width:auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
+  .brand { display:flex; flex-direction:column; line-height:1.2; }
+  .brand b { font-size: 18px; letter-spacing: .3px; } .brand span { font-size: 12px; color: var(--gold-2); letter-spacing: 1.5px; }
+  .topnav .who { margin-left:auto; font-size: 14px; color:#d9d8f5; }
+  main { padding: 28px clamp(16px, 3vw, 48px) 64px; }
+  h1 { font-size: clamp(22px, 2.2vw, 30px); margin: 0 0 6px; color: var(--navy); letter-spacing: -.3px; }
+  h2 { font-size: 18px; margin: 0 0 12px; color: var(--navy); display:flex; align-items:center; gap:8px; }
+  h2::before { content:''; width:4px; height:18px; background: var(--gold); border-radius: 2px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  label { font-size: 14px; color: var(--muted); display:block; margin: 12px 0 6px; font-weight: 600; }
+  input[type=text], input[type=password], textarea { width:100%; padding: 13px 14px; font-size: 16px; border:1.5px solid var(--line); border-radius: 10px; font-family: inherit; background:#fff; }
+  input:focus, textarea:focus { outline: none; border-color: var(--navy-2); box-shadow: 0 0 0 3px var(--navy-soft); }
+  button { appearance:none; border:0; border-radius: 10px; padding: 14px 18px; font-size: 16px; font-weight: 700; font-family: inherit;
+           background: var(--navy); color:#fff; width:100%; cursor:pointer; margin-top: 14px; transition: background .15s, transform .05s; }
+  button:hover { background: var(--navy-2); } button:active { transform: translateY(1px); }
+  button.secondary { background: var(--navy-soft); color: var(--navy); } button.secondary:hover { background:#dddcf6; }
+  button.gold { background: var(--gold); color: var(--navy); } button.gold:hover { background: var(--gold-2); }
   button.stop { background: var(--ink); }
   button:disabled { opacity: .45; cursor: default; }
-  .msg { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; white-space: pre-line; }
-  .msg.ok { background:#e8f6ef; color: var(--ok); } .msg.warn { background:#fff4e5; color: var(--warn); } .msg.bad { background:#fdecea; color: var(--bad); }
+  .msg { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-size: 14px; white-space: pre-line; }
+  .msg.ok { background: var(--ok-soft); color: var(--ok); } .msg.warn { background: var(--warn-soft); color: var(--warn); } .msg.bad { background: var(--bad-soft); color: var(--bad); }
   .hidden { display:none !important; }
-  .setlist button { text-align:left; background:#fff; color: var(--ink); border:1px solid var(--line); font-weight:500; }
-  .setlist button small { color: var(--muted); display:block; font-weight: 400; }
-  .meter { height: 12px; background:#eef0f4; border-radius: 6px; overflow:hidden; margin: 10px 0; }
-  .meter > div { height:100%; width:0; background: var(--ok); transition: width .06s linear; }
+
+  /* 로그인 */
+  .login { display:grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 0; min-height: calc(100vh - 180px);
+           border-radius: 20px; overflow:hidden; box-shadow: var(--shadow); border:1px solid var(--line); }
+  .login .hero { background: radial-gradient(circle at 30% 20%, var(--navy-2), var(--navy) 70%); color:#fff; padding: clamp(28px, 5vw, 64px);
+                 display:flex; flex-direction:column; justify-content:center; gap: 18px; position:relative; }
+  .login .hero img { width: clamp(120px, 14vw, 200px); filter: drop-shadow(0 6px 20px rgba(0,0,0,.35)); }
+  .login .hero h1 { color:#fff; font-size: clamp(28px, 3.2vw, 44px); margin:0; }
+  .login .hero p { color:#d9d8f5; margin:0; max-width: 520px; }
+  .login .hero .line { width: 64px; height: 4px; background: var(--gold); border-radius: 2px; }
+  .login .form { background:#fff; padding: clamp(28px, 5vw, 64px); display:flex; flex-direction:column; justify-content:center; }
+
+  /* 목록 카드 */
+  .setlist { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .setlist button { text-align:left; background:#fff; color: var(--ink); border:1px solid var(--line); border-left: 5px solid var(--gold);
+                    font-weight:700; margin:0; padding: 18px; box-shadow: var(--shadow); font-size: 17px; }
+  .setlist button:hover { border-color: var(--navy-2); border-left-color: var(--gold); background:#fff; }
+  .setlist button small { color: var(--muted); display:block; font-weight: 500; font-size: 13px; margin-top: 4px; }
+  .setlist.results button { border-left-color: var(--navy); }
+  .empty { color: var(--muted); font-size: 14px; margin: 0; }
+
+  .meter { height: 12px; background:#eceef6; border-radius: 6px; overflow:hidden; margin: 12px 0; }
+  .meter > div { height:100%; width:0; background: linear-gradient(90deg, var(--ok), #4cc38a); transition: width .06s linear; }
+
+  /* Part 안내 */
+  .part-hero { background: radial-gradient(circle at 50% 0%, var(--navy-2), var(--navy) 70%); color:#fff; border-radius: 20px; text-align:center;
+               padding: clamp(36px, 7vw, 90px) 24px; box-shadow: var(--shadow); }
+  .part-hero h1 { color: var(--gold); font-size: clamp(36px, 5vw, 64px); margin: 0; }
+  .part-hero p { color:#e3e2f8; font-size: 18px; margin: 10px 0 0; }
+  .part-hero button { width: auto; min-width: 220px; margin-top: 28px; }
+
   /* 시험 화면 */
-  .topbar { display:flex; justify-content:space-between; align-items:center; font-size:14px; color: var(--muted); margin-bottom: 8px; }
-  .progress { height: 4px; background: var(--line); border-radius: 2px; margin-bottom: 14px; overflow:hidden; }
-  .progress > div { height:100%; background: var(--accent); width:0; transition: width .3s; }
-  .video-wrap { position:relative; width:100%; aspect-ratio: 16/9; background:#000; border-radius: 10px; overflow:hidden; margin-bottom: 12px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; font-size:14px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .topbar #qLabel { color: var(--navy); font-size: 16px; }
+  .progress { height: 6px; background: #e3e4f2; border-radius: 3px; margin-bottom: 18px; overflow:hidden; }
+  .progress > div { height:100%; background: linear-gradient(90deg, var(--gold), var(--gold-2)); width:0; transition: width .3s; }
+  .qgrid { display:grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
+  .panel { position: sticky; top: 90px; text-align:center; }
+  .video-wrap { position:relative; width:100%; aspect-ratio: 16/9; background:#000; border-radius: 12px; overflow:hidden; margin-bottom: 14px; }
   .video-wrap video { position:absolute; inset:0; width:100%; height:100%; object-fit: contain; background:#000; }
   .video-wrap iframe, .video-wrap #yt { position:absolute; inset:0; width:100%; height:100%; }
-  .tap { position:absolute; inset:0; display:grid; place-items:center; background: rgba(0,0,0,.55); color:#fff; font-size: 18px; font-weight:600; cursor:pointer; }
-  .qtext { font-size: 20px; line-height: 1.5; margin: 6px 0 10px; }
-  .cue { background:#fffbea; border:1px solid #f5e3a3; border-radius: 10px; padding: 14px 16px; white-space: pre-line; margin-bottom: 10px; }
-  .phase { display:flex; align-items:center; gap:8px; font-weight:600; margin-top: 6px; }
+  .tap { position:absolute; inset:0; display:grid; place-items:center; background: rgba(22,20,112,.7); color:#fff; font-size: 20px; font-weight:700; cursor:pointer; }
+  .qtext { font-size: clamp(20px, 1.8vw, 26px); line-height: 1.5; margin: 6px 0 12px; color: var(--navy); font-weight: 600; }
+  .cue { background: var(--gold-soft); border:1px solid #f3dc8f; border-left: 5px solid var(--gold); border-radius: 12px; padding: 16px 18px; white-space: pre-line; margin-bottom: 12px; font-size: 17px; }
+  .phase { display:inline-flex; align-items:center; gap:8px; font-weight:700; padding: 6px 14px; border-radius: 999px; background: var(--navy-soft); color: var(--navy); }
   .dot { width:12px; height:12px; border-radius:50%; background: var(--muted); }
-  .phase.rec .dot { background: var(--rec); animation: blink 1s infinite; } .phase.rec { color: var(--rec); }
-  .phase.prep { color: var(--warn); } .phase.prep .dot { background: var(--warn); }
+  .phase.rec { background: #fdeceb; color: var(--rec); } .phase.rec .dot { background: var(--rec); animation: blink 1s infinite; }
+  .phase.prep { background: var(--gold-soft); color: var(--gold-ink); } .phase.prep .dot { background: var(--gold); }
   @keyframes blink { 50% { opacity: .25; } }
-  .timer { font-size: 44px; font-weight: 700; text-align:center; font-variant-numeric: tabular-nums; margin: 4px 0; }
-  .fb { white-space: pre-wrap; font-size: 15px; line-height: 1.65; }
-  .trans { background:#f9fafb; border:1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; color:#344054; }
-  .tagq { font-size: 12px; font-weight: 700; color: var(--accent); background:#eef2fb; border-radius: 6px; padding: 2px 8px; }
+  .timer { font-size: clamp(48px, 5vw, 72px); font-weight: 800; text-align:center; font-variant-numeric: tabular-nums; margin: 10px 0 4px; color: var(--navy); }
+  .listen { text-align:center; color: var(--navy); padding: 26px 0; font-size: 20px; font-weight: 600; background: var(--navy-soft); border-radius: 12px; margin-bottom: 12px; }
+  .idle { color: var(--muted); font-size: 14px; }
+
+  /* 결과 */
+  .fb { white-space: pre-wrap; font-size: 15px; line-height: 1.75; }
+  .trans { background:#f8f9fc; border:1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; white-space: pre-wrap; color:#3b3f5c; }
+  .tagq { font-size: 12px; font-weight: 800; color: var(--navy); background: var(--gold-soft); border:1px solid #f3dc8f; border-radius: 6px; padding: 2px 9px; }
+  .rgrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 16px; }
+  .rgrid .card { margin: 0; }
+  .summary { border-top: 5px solid var(--gold); }
   audio { width: 100%; margin-top: 8px; }
-  .listen { text-align:center; color: var(--muted); padding: 18px 0; font-size: 18px; }
-  table { width:100%; border-collapse: collapse; font-size: 14px; }
-  td, th { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align:left; }
+  table { width:100%; border-collapse: collapse; font-size: 15px; }
+  td, th { padding: 10px 6px; border-bottom: 1px solid var(--line); text-align:left; } th { color: var(--muted); font-size: 13px; }
+  td.ok { color: var(--ok); font-weight: 700; } td.bad { color: var(--bad); font-weight: 700; } td.warn { color: var(--warn); }
+  .back { width:auto; margin: 0 0 14px; padding: 9px 16px; font-size: 14px; }
+
+  @media (max-width: 900px) {
+    .login, .grid2, .qgrid { grid-template-columns: 1fr; }
+    .login .hero { min-height: 240px; }
+    .panel { position: static; }
+  }
 </style>
 </head>
 <body>
+<header class="topnav">
+  <img src="cnsa-logo.png" alt="CNSA">
+  <div class="brand"><b>IELTS Speaking</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div>
+  <div class="who" id="whoami"></div>
+</header>
 <main>
 
   <!-- 1. 로그인 -->
   <section id="vLogin">
-    <h1>IELTS Speaking 모의고사</h1>
-    <p class="sub">학번과 선생님께 받은 코드를 입력하세요.</p>
-    <div class="card">
-      <label for="sid">학번</label><input type="text" id="sid" inputmode="numeric" autocomplete="off">
-      <label for="code">코드</label><input type="password" id="code" inputmode="numeric" autocomplete="off">
-      <button id="btnLogin">로그인</button>
-      <div id="loginMsg" class="msg hidden"></div>
+    <div class="login">
+      <div class="hero">
+        <img src="cnsa-logo.png" alt="CNSA">
+        <div class="line"></div>
+        <h1>IELTS Speaking<br>Mock Test</h1>
+        <p>실제 시험처럼 질문을 듣고 답하면, 선생님이 녹음을 듣고 피드백을 드려요.</p>
+      </div>
+      <div class="form">
+        <h2>로그인</h2>
+        <p class="sub" style="margin:0">학번과 선생님께 받은 코드를 입력하세요.</p>
+        <label for="sid">학번</label><input type="text" id="sid" inputmode="numeric" autocomplete="off">
+        <label for="code">코드</label><input type="password" id="code" inputmode="numeric" autocomplete="off">
+        <button id="btnLogin">로그인</button>
+        <div id="loginMsg" class="msg hidden"></div>
+      </div>
     </div>
   </section>
 
-  <!-- 2. 차수 선택 -->
+  <!-- 2. 차수 선택 + 내 결과 -->
   <section id="vSets" class="hidden">
     <h1 id="hello"></h1>
-    <p class="sub">응시할 모의고사를 고르세요.</p>
-    <div class="card setlist" id="setList"></div>
-    <div id="setsMsg" class="msg hidden"></div>
-    <h2 style="margin-top:24px">내 결과</h2>
-    <p class="sub">선생님이 확인을 마친 시험의 피드백을 볼 수 있어요.</p>
-    <div class="card setlist" id="resList"><p class="sub" style="margin:0">불러오는 중…</p></div>
+    <p class="sub">응시할 모의고사를 고르거나, 공개된 결과를 확인하세요.</p>
+    <div class="grid2">
+      <div class="card">
+        <h2>응시할 모의고사</h2>
+        <div class="setlist" id="setList"></div>
+        <div id="setsMsg" class="msg hidden"></div>
+      </div>
+      <div class="card">
+        <h2>내 결과</h2>
+        <p class="sub">선생님이 확인을 마친 시험의 피드백을 볼 수 있어요.</p>
+        <div class="setlist results" id="resList"><p class="empty">불러오는 중…</p></div>
+      </div>
+    </div>
   </section>
 
   <!-- 결과 보기 -->
   <section id="vResult" class="hidden">
-    <button class="secondary" id="btnResBack" style="width:auto; margin:0 0 12px">← 돌아가기</button>
+    <button class="secondary back" id="btnResBack">← 돌아가기</button>
     <h1 id="resTitle"></h1>
     <p class="sub" id="resDate"></p>
-    <div class="card"><h2>선생님 종합 피드백</h2><div id="resSummary" class="fb"></div></div>
-    <div id="resAnswers"></div>
+    <div class="card summary"><h2>선생님 종합 피드백</h2><div id="resSummary" class="fb"></div></div>
+    <div id="resAnswers" class="rgrid"></div>
   </section>
 
   <!-- 3. 안내 + 마이크 확인 -->
   <section id="vReady" class="hidden">
     <h1 id="setTitle"></h1>
-    <div class="card">
-      <h2>시작 전 안내</h2>
-      <div id="guide" style="white-space:pre-line"></div>
-      <ul style="padding-left:18px; margin: 10px 0 0; color: var(--muted); font-size: 14px">
-        <li>질문을 들은 뒤 <b>“삐”</b> 소리가 나면 녹음이 시작됩니다.</li>
-        <li>일찍 끝나면 <b>답변 종료</b>를 눌러 다음 문항으로 넘어갈 수 있어요.</li>
-        <li>Part 2는 1분 준비(메모 가능) 후 최대 2분 동안 말합니다.</li>
-        <li>시험 중에는 페이지를 닫거나 새로고침하지 마세요.</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h2>마이크 확인</h2>
-      <button id="btnMic">마이크 켜기</button>
-      <div id="micArea" class="hidden">
-        <p class="sub" style="margin:10px 0 0">아무 말이나 해보세요. 막대가 움직이면 정상입니다.</p>
-        <div class="meter"><div id="micLevel"></div></div>
-        <button id="btnStart">시험 시작</button>
+    <p class="sub">시작 전에 안내를 읽고 마이크를 확인하세요.</p>
+    <div class="grid2">
+      <div class="card">
+        <h2>시작 전 안내</h2>
+        <div id="guide" style="white-space:pre-line"></div>
+        <ul style="padding-left:18px; margin: 12px 0 0; color: var(--muted); font-size: 15px">
+          <li>질문을 들은 뒤 <b>“삐”</b> 소리가 나면 녹음이 시작됩니다.</li>
+          <li>일찍 끝나면 <b>답변 종료</b>를 눌러 다음 문항으로 넘어갈 수 있어요.</li>
+          <li>Part 2는 1분 준비(메모 가능) 후 최대 2분 동안 말합니다.</li>
+          <li>시험 중에는 페이지를 닫거나 새로고침하지 마세요.</li>
+        </ul>
       </div>
-      <div id="micMsg" class="msg hidden"></div>
+      <div class="card">
+        <h2>마이크 확인</h2>
+        <button id="btnMic">마이크 켜기</button>
+        <div id="micArea" class="hidden">
+          <p class="sub" style="margin:12px 0 0">아무 말이나 해보세요. 막대가 움직이면 정상입니다.</p>
+          <div class="meter"><div id="micLevel"></div></div>
+          <button id="btnStart" class="gold">시험 시작</button>
+        </div>
+        <div id="micMsg" class="msg hidden"></div>
+      </div>
     </div>
   </section>
 
   <!-- 4. Part 시작 안내 -->
   <section id="vPart" class="hidden">
-    <div class="card" style="text-align:center">
+    <div class="part-hero">
       <h1 id="partTitle"></h1>
-      <p id="partDesc" class="sub" style="margin:8px 0 0"></p>
-      <button id="btnPart">시작</button>
+      <p id="partDesc"></p>
+      <button id="btnPart" class="gold">시작</button>
     </div>
   </section>
 
@@ -126,18 +211,23 @@
   <section id="vQ" class="hidden">
     <div class="topbar"><span id="qLabel"></span><span id="upState"></span></div>
     <div class="progress"><div id="prog"></div></div>
-    <div class="card">
-      <div class="video-wrap hidden" id="videoWrap"><div id="yt"></div><div class="tap hidden" id="tapPlay">▶ 눌러서 질문 재생</div></div>
-      <div class="video-wrap hidden" id="fvWrap"><video id="fv" playsinline webkit-playsinline preload="auto"></video><div class="tap hidden" id="tapFv">▶ 눌러서 질문 재생</div></div>
-      <div id="listening" class="listen hidden">🔊 질문을 잘 들으세요…</div>
-      <div id="qText" class="qtext"></div>
-      <div id="cue" class="cue hidden"></div>
-      <div id="memoWrap" class="hidden"><label for="memo">메모 (제출되지 않아요)</label><textarea id="memo" rows="4"></textarea></div>
-      <div id="phase" class="phase hidden"><span class="dot"></span><span id="phaseText"></span></div>
-      <div id="timer" class="timer hidden"></div>
-      <div class="meter hidden" id="qMeter"><div id="qLevel"></div></div>
-      <button id="btnEnd" class="stop hidden">답변 종료</button>
-      <button id="btnSkipPrep" class="secondary hidden">준비 끝, 바로 말하기</button>
+    <div class="qgrid">
+      <div class="card">
+        <div class="video-wrap hidden" id="videoWrap"><div id="yt"></div><div class="tap hidden" id="tapPlay">▶ 눌러서 질문 재생</div></div>
+        <div class="video-wrap hidden" id="fvWrap"><video id="fv" playsinline webkit-playsinline preload="auto"></video><div class="tap hidden" id="tapFv">▶ 눌러서 질문 재생</div></div>
+        <div id="listening" class="listen hidden">🔊 질문을 잘 들으세요…</div>
+        <div id="qText" class="qtext"></div>
+        <div id="cue" class="cue hidden"></div>
+        <div id="memoWrap" class="hidden"><label for="memo">메모 (제출되지 않아요)</label><textarea id="memo" rows="6"></textarea></div>
+      </div>
+      <div class="card panel">
+        <div id="phase" class="phase hidden"><span class="dot"></span><span id="phaseText"></span></div>
+        <div id="timer" class="timer hidden"></div>
+        <div class="meter hidden" id="qMeter"><div id="qLevel"></div></div>
+        <button id="btnEnd" class="stop hidden">답변 종료</button>
+        <button id="btnSkipPrep" class="gold hidden">준비 끝, 바로 말하기</button>
+        <p class="idle">질문이 끝나면 “삐” 소리와 함께 녹음이 시작됩니다.</p>
+      </div>
     </div>
   </section>
 
@@ -146,8 +236,10 @@
     <h1>시험이 끝났습니다</h1>
     <p class="sub" id="doneSub">답변을 제출하고 있어요. 이 화면을 닫지 마세요.</p>
     <div class="card"><table><thead><tr><th>문항</th><th>길이</th><th>상태</th></tr></thead><tbody id="upTable"></tbody></table>
-      <button id="btnRetryAll" class="hidden">실패한 답변 다시 보내기</button>
-      <button id="btnSaveLocal" class="secondary hidden">실패한 답변을 기기에 저장</button>
+      <div class="grid2" style="gap:12px">
+        <button id="btnRetryAll" class="hidden">실패한 답변 다시 보내기</button>
+        <button id="btnSaveLocal" class="secondary hidden">실패한 답변을 기기에 저장</button>
+      </div>
       <div id="doneMsg" class="msg hidden"></div>
     </div>
   </section>
@@ -229,8 +321,9 @@ try { $('sid').value = localStorage.getItem('ielts_sid') || ''; } catch (_) {}
 /* ================= 2. 차수 선택 ================= */
 function renderSets(sets) {
   $('hello').textContent = `${S.name} 학생, 안녕하세요`;
+  $('whoami').textContent = `${S.name} · ${S.sid}`;
   const box = $('setList'); box.innerHTML = '';
-  if (!sets.length) { box.innerHTML = '<p class="sub" style="margin:0">지금 응시할 수 있는 모의고사가 없습니다.</p>'; }
+  if (!sets.length) { box.innerHTML = '<p class="empty">지금 응시할 수 있는 모의고사가 없습니다.</p>'; }
   sets.forEach(s => {
     const b = document.createElement('button');
     b.innerHTML = `${escapeHtml(s.title)}<small>${s.count}문항</small>`;
@@ -247,13 +340,13 @@ async function loadResults() {
   const box = $('resList');
   try {
     RESULTS = (await apiGet({ action: 'myResults', sid: S.sid, code: S.code })).results;
-    box.innerHTML = RESULTS.length ? '' : '<p class="sub" style="margin:0">아직 공개된 결과가 없습니다.</p>';
+    box.innerHTML = RESULTS.length ? '' : '<p class="empty">아직 공개된 결과가 없습니다.</p>';
     RESULTS.forEach((r, i) => {
       const b = document.createElement('button');
       b.innerHTML = `${escapeHtml(r.setTitle)}<small>${escapeHtml(r.date)} 응시 · 피드백 보기</small>`;
       b.onclick = () => openResult(i); box.appendChild(b);
     });
-  } catch (e) { box.innerHTML = '<p class="sub" style="margin:0">결과를 불러오지 못했습니다.</p>'; }
+  } catch (e) { box.innerHTML = '<p class="empty">결과를 불러오지 못했습니다.</p>'; }
 }
 function openResult(i) {
   const r = RESULTS[i];
@@ -263,8 +356,8 @@ function openResult(i) {
   r.answers.forEach(a => {
     const el = document.createElement('div'); el.className = 'card';
     el.innerHTML = `<span class="tagq">Part ${a.part} · ${a.order}</span>
-      <div class="qtext" style="font-size:17px">${escapeHtml(a.question)}</div>
-      <button class="secondary" style="width:auto; margin-top:4px">▶ 내 답변 듣기</button><div data-p></div>
+      <div class="qtext" style="font-size:18px; margin-top:10px">${escapeHtml(a.question)}</div>
+      <button class="secondary" style="width:auto; margin-top:0; padding:10px 16px; font-size:14px">▶ 내 답변 듣기</button><div data-p></div>
       ${a.transcript ? `<p class="sub" style="margin:12px 0 4px">내 답변 받아쓰기 (AI가 받아 적어 일부 틀릴 수 있어요)</p><div class="trans">${escapeHtml(a.transcript)}</div>` : ''}
       <p class="sub" style="margin:12px 0 4px">피드백</p><div class="fb">${escapeHtml(a.feedback || '(피드백 없음)')}</div>`;
     const btn = el.querySelector('button');
@@ -561,7 +654,7 @@ function countdown(seconds, endBtn, minSec) {
     }, 1000);
   });
 }
-function setPhase(cls, text) { const p = $('phase'); p.className = 'phase ' + cls; $('phaseText').textContent = text; vis(p, !!text); }
+function setPhase(cls, text) { const p = $('phase'); p.className = 'phase ' + cls; $('phaseText').textContent = text; vis(p, !!text); document.querySelector('.idle').classList.toggle('hidden', !!text); }
 
 async function runExam() {
   let lastPart = 0;

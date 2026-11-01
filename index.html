@@ -3,44 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IELTS Speaking 마이크 테스트</title>
+<title>CNSA IELTS 마이크 테스트</title>
+<link rel="icon" href="cnsa-logo.png">
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e4e7ec;
-          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --accent:#2f5bd3; }
+  :root { --navy:#161470; --navy-2:#2b28a0; --navy-soft:#ecebfa; --gold:#fabe0d; --gold-2:#ffd34d; --gold-soft:#fff6d9;
+          --bg:#f4f5fa; --card:#fff; --ink:#1b1d33; --muted:#6b6f86; --line:#e3e5ef;
+          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --shadow: 0 1px 2px rgba(22,20,112,.06), 0 4px 16px rgba(22,20,112,.06); }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
-  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
-  .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
-  .card h2 { font-size: 16px; margin: 0 0 10px; display:flex; gap:8px; align-items:center; }
-  .num { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%;
-         background: var(--accent); color:#fff; font-size: 13px; }
-  ul.checks { list-style:none; padding:0; margin:0; }
-  ul.checks li { padding: 4px 0; font-size: 15px; }
+         font: 16px/1.6 "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  .topnav { background: var(--navy); color:#fff; display:flex; align-items:center; gap:14px; padding: 10px clamp(16px, 3vw, 48px); border-bottom: 4px solid var(--gold); }
+  .topnav img { height: 44px; } .brand { display:flex; flex-direction:column; line-height:1.2; }
+  .brand b { font-size: 18px; } .brand span { font-size: 12px; color: var(--gold-2); letter-spacing: 1.5px; }
+  main { padding: 28px clamp(16px, 3vw, 48px) 64px; }
+  h1 { font-size: clamp(22px, 2.2vw, 30px); margin: 0 0 6px; color: var(--navy); }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  .steps { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 14px; padding: 22px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 17px; margin: 0 0 12px; display:flex; gap:10px; align-items:center; color: var(--navy); }
+  .num { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background: var(--navy); color: var(--gold); font-size: 14px; font-weight: 800; }
+  ul.checks { list-style:none; padding:0; margin:0; } ul.checks li { padding: 4px 0; font-size: 15px; }
   .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
-  label { font-size: 14px; color: var(--muted); display:block; margin-bottom: 6px; }
-  input[type=text] { width:100%; padding: 12px; font-size: 16px; border:1px solid var(--line); border-radius: 8px; }
-  button { appearance:none; border:0; border-radius: 10px; padding: 14px 18px; font-size: 16px; font-weight: 600;
-           background: var(--accent); color:#fff; width:100%; cursor:pointer; margin-top: 10px; }
-  button.secondary { background:#eef2fb; color: var(--accent); }
+  label { font-size: 14px; color: var(--muted); display:block; margin-bottom: 6px; font-weight: 600; }
+  input[type=text] { width:100%; padding: 13px 14px; font-size: 16px; border:1.5px solid var(--line); border-radius: 10px; font-family: inherit; }
+  input:focus { outline:none; border-color: var(--navy-2); box-shadow: 0 0 0 3px var(--navy-soft); }
+  button { appearance:none; border:0; border-radius: 10px; padding: 14px 18px; font-size: 16px; font-weight: 700; font-family: inherit;
+           background: var(--navy); color:#fff; width:100%; cursor:pointer; margin-top: 12px; }
+  button:hover { background: var(--navy-2); }
+  button.secondary { background: var(--navy-soft); color: var(--navy); }
   button:disabled { opacity: .45; cursor: default; }
-  .meter { height: 14px; background:#eef0f4; border-radius: 7px; overflow:hidden; margin: 12px 0 4px; }
-  .meter > div { height:100%; width:0; background: var(--ok); transition: width .05s linear; }
-  .big { font-size: 28px; font-weight: 700; text-align:center; margin: 8px 0; font-variant-numeric: tabular-nums; }
-  .msg { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; display:none; white-space: pre-line; }
+  .meter { height: 14px; background:#eceef6; border-radius: 7px; overflow:hidden; margin: 12px 0 4px; }
+  .meter > div { height:100%; width:0; background: linear-gradient(90deg, var(--ok), #4cc38a); transition: width .05s linear; }
+  .big { font-size: 48px; font-weight: 800; text-align:center; margin: 8px 0; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .msg { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-size: 14px; display:none; white-space: pre-line; }
   .msg.show { display:block; }
-  .msg.ok { background:#e8f6ef; } .msg.warn { background:#fff4e5; } .msg.bad { background:#fdecea; }
-  audio { width:100%; margin-top: 10px; }
+  .msg.ok { background:#e6f5ee; } .msg.warn { background:#fff4e5; } .msg.bad { background:#fdecea; }
+  audio { width:100%; margin-top: 12px; }
   .hidden { display:none; }
+  @media (max-width: 800px) { .steps { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
+<header class="topnav"><img src="cnsa-logo.png" alt="CNSA"><div class="brand"><b>IELTS Speaking</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div></header>
 <main>
-  <h1>IELTS Speaking 마이크 테스트</h1>
+  <h1>마이크 테스트</h1>
   <p class="sub">시험 전에 이 기기에서 녹음과 제출이 되는지 확인합니다. 1분이면 끝나요.</p>
-
+  <div class="steps">
   <section class="card">
     <h2><span class="num">1</span>기기 환경 점검</h2>
     <ul class="checks" id="checks"></ul>
@@ -71,6 +79,7 @@
     <button id="btnUpload" disabled>녹음 파일 제출</button>
     <div class="msg" id="upMsg"></div>
   </section>
+  </div>
 </main>
 
 <script>
