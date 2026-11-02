@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CNSA IELTS 마이크 테스트</title>
+<link rel="icon" href="cnsa-logo.png">
+<style>
+  :root { --navy:#161470; --navy-2:#2b28a0; --navy-soft:#ecebfa; --gold:#fabe0d; --gold-2:#ffd34d; --gold-soft:#fff6d9;
+          --bg:#f4f5fa; --card:#fff; --ink:#1b1d33; --muted:#6b6f86; --line:#e3e5ef;
+          --ok:#12805c; --warn:#b54708; --bad:#c0362c; --shadow: 0 1px 2px rgba(22,20,112,.06), 0 4px 16px rgba(22,20,112,.06); }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font: 16px/1.6 "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  .topnav { background: var(--navy); color:#fff; display:flex; align-items:center; gap:14px; padding: 10px clamp(16px, 3vw, 48px); border-bottom: 4px solid var(--gold); }
+  .topnav img { height: 44px; } .brand { display:flex; flex-direction:column; line-height:1.2; }
+  .brand b { font-size: 18px; } .brand span { font-size: 12px; color: var(--gold-2); letter-spacing: 1.5px; }
+  main { padding: 28px clamp(16px, 3vw, 48px) 64px; }
+  h1 { font-size: clamp(22px, 2.2vw, 30px); margin: 0 0 6px; color: var(--navy); }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  .steps { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 14px; padding: 22px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 17px; margin: 0 0 12px; display:flex; gap:10px; align-items:center; color: var(--navy); }
+  .num { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background: var(--navy); color: var(--gold); font-size: 14px; font-weight: 800; }
+  ul.checks { list-style:none; padding:0; margin:0; } ul.checks li { padding: 4px 0; font-size: 15px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  label { font-size: 14px; color: var(--muted); display:block; margin-bottom: 6px; font-weight: 600; }
+  input[type=text] { width:100%; padding: 13px 14px; font-size: 16px; border:1.5px solid var(--line); border-radius: 10px; font-family: inherit; }
+  input:focus { outline:none; border-color: var(--navy-2); box-shadow: 0 0 0 3px var(--navy-soft); }
+  button { appearance:none; border:0; border-radius: 10px; padding: 14px 18px; font-size: 16px; font-weight: 700; font-family: inherit;
+           background: var(--navy); color:#fff; width:100%; cursor:pointer; margin-top: 12px; }
+  button:hover { background: var(--navy-2); }
+  button.secondary { background: var(--navy-soft); color: var(--navy); }
+  button:disabled { opacity: .45; cursor: default; }
+  .meter { height: 14px; background:#eceef6; border-radius: 7px; overflow:hidden; margin: 12px 0 4px; }
+  .meter > div { height:100%; width:0; background: linear-gradient(90deg, var(--ok), #4cc38a); transition: width .05s linear; }
+  .big { font-size: 48px; font-weight: 800; text-align:center; margin: 8px 0; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .msg { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-size: 14px; display:none; white-space: pre-line; }
+  .msg.show { display:block; }
+  .msg.ok { background:#e6f5ee; } .msg.warn { background:#fff4e5; } .msg.bad { background:#fdecea; }
+  audio { width:100%; margin-top: 12px; }
+  .hidden { display:none; }
+  @media (max-width: 800px) { .steps { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="topnav"><img src="cnsa-logo.png" alt="CNSA"><div class="brand"><b>IELTS Speaking</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div></header>
+<main>
+  <h1>마이크 테스트</h1>
+  <p class="sub">시험 전에 이 기기에서 녹음과 제출이 되는지 확인합니다. 1분이면 끝나요.</p>
+  <div class="steps">
+  <section class="card">
+    <h2><span class="num">1</span>기기 환경 점검</h2>
+    <ul class="checks" id="checks"></ul>
+    <div class="msg" id="envMsg"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">2</span>서버 연결</h2>
+    <ul class="checks"><li id="pingResult">확인 중…</li></ul>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">3</span>5초 녹음 테스트</h2>
+    <label for="student">학번 이름 (예: 20231 홍길동)</label>
+    <input type="text" id="student" autocomplete="off">
+    <button id="btnRecord">마이크 켜고 녹음 시작</button>
+    <div id="recArea" class="hidden">
+      <div class="big" id="countdown">5</div>
+      <div class="meter"><div id="level"></div></div>
+      <div class="sub" style="margin:0">말해 보세요: “My name is … and I’m testing my microphone.”</div>
+    </div>
+    <audio id="player" controls class="hidden"></audio>
+    <div class="msg" id="recMsg"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">4</span>제출 테스트</h2>
+    <button id="btnUpload" disabled>녹음 파일 제출</button>
+    <div class="msg" id="upMsg"></div>
+  </section>
+  </div>
+</main>
+
+<script>
+/* ===== 설정: Apps Script 웹 앱 URL 붙여넣기 ===== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
+const RECORD_SECONDS = 5;
+const TARGET_RATE = 16000;   // 16kHz 모노 WAV
+
+/* ===== 기기/브라우저 판별 ===== */
+const UA = navigator.userAgent;
+const isIPad = /iPad/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+const isMac = /Macintosh/.test(UA) && !isIPad;
+const isAndroid = /Android/.test(UA);
+const isWindows = /Windows/.test(UA);
+const device = isIPad ? 'iPad' : isAndroid ? 'Android' : isMac ? 'Mac' : isWindows ? 'Windows' : 'Other';
+const inApp = /KAKAOTALK|NAVER\(|Instagram|FBAN|FBAV|Line\/|everytimeApp|DaumApps/i.test(UA);
+const browser = /Edg\//.test(UA) ? 'Edge' : /SamsungBrowser/.test(UA) ? 'Samsung' :
+                /CriOS|Chrome\//.test(UA) ? 'Chrome' : /FxiOS|Firefox/.test(UA) ? 'Firefox' :
+                /Safari/.test(UA) ? 'Safari' : 'Other';
+
+const $ = id => document.getElementById(id);
+function showMsg(el, cls, text) { el.className = 'msg show ' + cls; el.textContent = text; }
+function li(cls, text) { const x = document.createElement('li'); x.className = cls; x.textContent = text; $('checks').appendChild(x); }
+
+/* ===== 1. 환경 점검 ===== */
+function checkEnv() {
+  li('ok', `기기: ${device} · 브라우저: ${browser}`);
+  let blocked = false;
+  if (inApp) {
+    li('bad', '✕ 앱 내부 브라우저(카카오톡 등)에서 열려 있습니다.');
+    showMsg($('envMsg'), 'bad', isIPad || /iPhone/.test(UA)
+      ? '오른쪽 아래(또는 위) 메뉴에서 “Safari로 열기”를 눌러 다시 접속하세요.'
+      : '메뉴에서 “다른 브라우저로 열기”를 눌러 Chrome으로 다시 접속하세요.');
+    blocked = true;
+  }
+  if (!window.isSecureContext) { li('bad', '✕ 보안 연결(https)이 아닙니다.'); blocked = true; }
+  else li('ok', '✓ 보안 연결(https)');
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { li('bad', '✕ 이 브라우저는 마이크 녹음을 지원하지 않습니다.'); blocked = true; }
+  else li('ok', '✓ 마이크 녹음 지원');
+  if (!(window.AudioContext || window.webkitAudioContext)) { li('bad', '✕ 오디오 처리 기능이 없습니다.'); blocked = true; }
+  else li('ok', '✓ 오디오 처리 지원');
+  if (blocked) { $('btnRecord').disabled = true; if (!inApp) showMsg($('envMsg'), 'bad', '최신 Chrome 또는 Safari로 접속해 주세요.'); }
+}
+
+/* ===== 2. 서버 연결 ===== */
+async function ping() {
+  const el = $('pingResult');
+  if (API_URL.startsWith('PASTE')) { el.className = 'warn'; el.textContent = '! API_URL이 아직 설정되지 않았습니다 (교사용).'; return; }
+  try {
+    const r = await fetch(API_URL + '?action=ping', { cache: 'no-store' });
+    const d = await r.json();
+    if (d.ok && d.ready) { el.className = 'ok'; el.textContent = `✓ 서버 연결됨 (${d.serverTime})`; }
+    else if (d.ok) { el.className = 'warn'; el.textContent = '! 서버는 응답했지만 초기 설정(setup)이 안 되어 있습니다.'; }
+    else { el.className = 'bad'; el.textContent = '✕ 서버 오류: ' + d.error; }
+  } catch (e) {
+    el.className = 'bad';
+    el.textContent = '✕ 서버에 연결할 수 없습니다. (웹 앱 액세스 권한이 “모든 사용자”인지 확인)';
+  }
+}
+
+/* ===== 3. 녹음 (Web Audio → 16kHz 모노 WAV) ===== */
+let ctx, stream, source, processor, chunks = [], wavBlob = null, peak = 0, recRate = 48000;
+
+function permissionHelp() {
+  if (isIPad) return 'iPad: 주소창 왼쪽 “가가(aA)” → 웹 사이트 설정 → 마이크 → 허용\n또는 설정 앱 → Safari → 마이크 → 허용';
+  if (isMac && browser === 'Safari') return 'Mac Safari: Safari 메뉴 → 설정 → 웹사이트 → 마이크 → 이 사이트 허용\n시스템 설정 → 개인정보 보호 및 보안 → 마이크 → Safari 켜기';
+  if (isMac) return 'Mac: 주소창 왼쪽 아이콘 → 마이크 허용\n시스템 설정 → 개인정보 보호 및 보안 → 마이크 → Chrome 켜기 (변경 후 Chrome 재시작)';
+  if (isAndroid) return '갤럭시탭: 주소창 왼쪽 아이콘 → 권한 → 마이크 허용\n설정 → 애플리케이션 → Chrome → 권한 → 마이크 → 허용';
+  if (isWindows) return 'Windows: 주소창 왼쪽 아이콘 → 마이크 허용\nWindows 설정 → 개인 정보 → 마이크 → “앱이 마이크에 액세스하도록 허용” 켜기';
+  return '브라우저 주소창 왼쪽 아이콘에서 마이크를 허용해 주세요.';
+}
+
+function explainError(e) {
+  const n = e && e.name;
+  if (n === 'NotAllowedError' || n === 'SecurityError') return '마이크 권한이 거부되었습니다.\n\n' + permissionHelp() + '\n\n허용한 뒤 페이지를 새로고침하세요.';
+  if (n === 'NotFoundError' || n === 'OverconstrainedError') return '마이크를 찾을 수 없습니다. 이어폰/마이크 연결을 확인하세요.';
+  if (n === 'NotReadableError' || n === 'AbortError') return '다른 앱(Zoom, Teams 등)이 마이크를 사용 중일 수 있습니다. 그 앱을 닫고 다시 시도하세요.';
+  return '녹음을 시작하지 못했습니다: ' + (n || '') + ' ' + (e && e.message || e);
+}
+
+async function startRecording() {
+  $('btnRecord').disabled = true; $('btnUpload').disabled = true;
+  $('player').classList.add('hidden'); $('recMsg').className = 'msg'; $('upMsg').className = 'msg';
+  chunks = []; peak = 0; wavBlob = null;
+
+  // iPad/Safari: 사용자 터치 직후 동기적으로 AudioContext 생성
+  const AC = window.AudioContext || window.webkitAudioContext;
+  ctx = new AC();
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+  } catch (e) {
+    showMsg($('recMsg'), 'bad', explainError(e));
+    cleanup(); $('btnRecord').disabled = false; return;
+  }
+  recRate = ctx.sampleRate;
+  source = ctx.createMediaStreamSource(stream);
+  processor = ctx.createScriptProcessor(4096, 1, 1);
+  processor.onaudioprocess = ev => {
+    const input = ev.inputBuffer.getChannelData(0);
+    chunks.push(new Float32Array(input));
+    let m = 0; for (let i = 0; i < input.length; i++) { const v = Math.abs(input[i]); if (v > m) m = v; }
+    if (m > peak) peak = m;
+    $('level').style.width = Math.min(100, m * 160) + '%';
+  };
+  const mute = ctx.createGain(); mute.gain.value = 0;   // 스피커로 되울리지 않게
+  source.connect(processor); processor.connect(mute); mute.connect(ctx.destination);
+
+  $('recArea').classList.remove('hidden');
+  let left = RECORD_SECONDS; $('countdown').textContent = left;
+  const t = setInterval(() => {
+    left--; $('countdown').textContent = Math.max(left, 0);
+    if (left <= 0) { clearInterval(t); stopRecording(); }
+  }, 1000);
+}
+
+function stopRecording() {
+  const rate = recRate;
+  cleanup();
+  $('recArea').classList.add('hidden'); $('level').style.width = '0';
+  const merged = mergeChunks(chunks);
+  if (!merged.length) { showMsg($('recMsg'), 'bad', '녹음된 데이터가 없습니다. 다시 시도해 주세요.'); $('btnRecord').disabled = false; return; }
+  const down = downsample(merged, rate, TARGET_RATE);
+  wavBlob = encodeWav(down, TARGET_RATE);
+  $('player').src = URL.createObjectURL(wavBlob); $('player').classList.remove('hidden');
+
+  if (peak < 0.02) showMsg($('recMsg'), 'warn', '녹음은 되었지만 소리가 거의 들어오지 않았습니다. ▶ 재생해서 확인하고, 마이크 음소거나 입력 장치를 점검하세요.');
+  else showMsg($('recMsg'), 'ok', '✓ 녹음 완료. ▶ 버튼으로 내 목소리가 잘 들리는지 확인한 뒤 제출하세요.');
+  $('btnRecord').textContent = '다시 녹음하기'; $('btnRecord').disabled = false;
+  $('btnUpload').disabled = false;
+}
+
+function cleanup() {
+  try { processor && processor.disconnect(); source && source.disconnect(); } catch (_) {}
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (ctx && ctx.state !== 'closed') ctx.close();
+  processor = source = stream = null;
+}
+
+function mergeChunks(list) {
+  let len = 0; list.forEach(c => len += c.length);
+  const out = new Float32Array(len); let off = 0;
+  list.forEach(c => { out.set(c, off); off += c.length; });
+  return out;
+}
+
+function downsample(buf, from, to) {
+  if (to >= from) return buf;
+  const ratio = from / to, outLen = Math.floor(buf.length / ratio), out = new Float32Array(outLen);
+  let pos = 0;
+  for (let i = 0; i < outLen; i++) {
+    const end = Math.floor((i + 1) * ratio); let sum = 0, n = 0;
+    for (; pos < end && pos < buf.length; pos++) { sum += buf[pos]; n++; }
+    out[i] = n ? sum / n : 0;
+  }
+  return out;
+}
+
+function encodeWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE');
+  w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+  let o = 44;
+  for (let i = 0; i < samples.length; i++, o += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+/* ===== 4. 업로드 ===== */
+async function blobToBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = ''; const step = 0x8000;
+  for (let i = 0; i < bytes.length; i += step) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+  return btoa(bin);
+}
+
+/* 1차: 일반 POST(응답 읽기). 실패 시 2차: no-cors POST로 보내고 GET status로 저장 확인 */
+async function postJSON(payload) {
+  const body = JSON.stringify(payload);
+  let firstErr;
+  try {
+    const r = await fetch(API_URL, { method: 'POST', body });
+    const d = await r.json();
+    if (!d.ok) throw Object.assign(new Error(d.error), { server: true });
+    return d;
+  } catch (e) {
+    if (e.server) throw e;          // 서버가 보낸 오류는 그대로 표시
+    firstErr = e;
+  }
+  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
+  for (let i = 0; i < 8; i++) {
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const r = await fetch(`${API_URL}?action=status&id=${payload.uploadId}`, { cache: 'no-store' });
+      const d = await r.json();
+      if (d.ok) { d.via = '우회 방식'; return d; }
+    } catch (_) {}
+  }
+  throw new Error(`일반 전송 실패(${firstErr && firstErr.message}), 우회 전송 후에도 저장 확인 안 됨`);
+}
+
+async function upload() {
+  if (!wavBlob) return;
+  const student = $('student').value.trim();
+  if (!student) { showMsg($('upMsg'), 'warn', '3번에 학번과 이름을 입력해 주세요.'); $('student').focus(); return; }
+  if (API_URL.startsWith('PASTE')) { showMsg($('upMsg'), 'bad', 'API_URL이 설정되지 않았습니다 (교사용).'); return; }
+  $('btnUpload').disabled = true; showMsg($('upMsg'), 'warn', '제출 중…');
+
+  const payload = {
+    action: 'micTest', student, device, browser, userAgent: UA,
+    sampleRate: TARGET_RATE, durationSec: RECORD_SECONDS, peak: Math.round(peak * 1000) / 1000,
+    audio: await blobToBase64(wavBlob)
+  };
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      payload.uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const d = await postJSON(payload);
+      showMsg($('upMsg'), 'ok', `✓ 제출 성공 (${d.savedAt}, ${d.sizeKB}KB${d.via ? ', ' + d.via : ''})\n이 기기는 시험 응시 준비가 되었습니다.`);
+      return;
+    } catch (e) {
+      if (attempt < 3) { showMsg($('upMsg'), 'warn', `제출 실패, 다시 시도 중… (${attempt}/3)`); await new Promise(r => setTimeout(r, 1500 * attempt)); }
+      else { showMsg($('upMsg'), 'bad', '✕ 제출하지 못했습니다: ' + (e.message || e) + '\n와이파이 연결을 확인하고 다시 눌러 주세요.'); $('btnUpload').disabled = false; }
+    }
+  }
+}
+
+$('btnRecord').addEventListener('click', startRecording);
+$('btnUpload').addEventListener('click', upload);
+checkEnv(); ping();
+</script>
+</body>
+</html>

@@ -112,7 +112,7 @@
   .fbsec.say { background: var(--navy-soft); border-color: #d4d2f3; } .fbsec.say h3 { color: var(--navy); } .fbsec.say .ic { background: var(--navy); }
   .fbsec.plain { grid-column: 1 / -1; }
   @media (max-width: 1000px) { .fbgrid { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .brand span, .topnav .who { display:none; } .topnav img { height: 38px; } }
+  @media (max-width: 600px) { .brand span, .topnav .who { display:none; } .topnav img { height: 38px; } .modes a { padding: 6px 10px; } }
   .rgrid .card { margin: 0; }
   .summary { border-top: 5px solid var(--gold); }
   audio { width: 100%; margin-top: 8px; }
@@ -123,6 +123,9 @@
   .gnote { font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
   .logout { width:auto; margin:0 0 0 12px; padding: 7px 14px; font-size: 13px; background: rgba(255,255,255,.12); color:#fff; border-radius: 8px; }
   .logout:hover { background: rgba(255,255,255,.22); }
+  .modes { display:flex; gap:4px; background: rgba(255,255,255,.08); padding: 4px; border-radius: 10px; margin-left: 10px; }
+  .modes a { color:#d9d8f5; text-decoration:none; padding: 6px 14px; border-radius: 7px; font-weight: 700; font-size: 14px; }
+  .modes a.on { background: var(--gold); color: var(--navy); } .modes a:hover:not(.on) { background: rgba(255,255,255,.12); }
   .back { width:auto; margin: 0 0 14px; padding: 9px 16px; font-size: 14px; }
 
   @media (max-width: 900px) {
@@ -136,6 +139,7 @@
 <header class="topnav">
   <img src="cnsa-logo.png" alt="CNSA">
   <div class="brand"><b>IELTS Speaking</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div>
+  <nav class="modes"><a href="exam.html" class="on">Speaking</a><a href="writing.html" id="toWriting">Writing</a></nav>
   <div class="who" id="whoami"></div>
   <button class="logout hidden" id="btnLogout">로그아웃</button>
 </header>
@@ -364,6 +368,7 @@ async function onCredential(resp) {
     msg($('loginMsg'), 'bad', e.server ? e.message : '서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
   }
 }
+$('toWriting').onclick = e => { if (window.onbeforeunload && !confirm('시험이 진행 중입니다. Writing으로 이동할까요?')) e.preventDefault(); else window.onbeforeunload = null; };
 $('btnLogout').onclick = () => {
   if (window.onbeforeunload && !confirm('시험이 진행 중입니다. 로그아웃할까요?')) return;
   window.onbeforeunload = null; clearSession();
