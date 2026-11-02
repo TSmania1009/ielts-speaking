@@ -95,6 +95,37 @@
   .listen { text-align:center; color: var(--navy); padding: 26px 0; font-size: 20px; font-weight: 600; background: var(--navy-soft); border-radius: 12px; margin-bottom: 12px; }
   .idle { color: var(--muted); font-size: 14px; }
 
+  /* 면접관 화면 + 내 얼굴 (화상 통화처럼) */
+  .stage { position:relative; width:100%; aspect-ratio: 4/3; border-radius: 12px; overflow:hidden; margin-bottom: 14px;
+           background: linear-gradient(#dfe3ee, #c9cfdf); box-shadow: inset 0 0 0 1px rgba(22,20,112,.08); }
+  .stage > video, .stage > svg { position:absolute; inset:0; width:100%; height:100%; object-fit: cover; display:block; }
+  .stage .self { position:absolute; inset:auto 8px 8px auto; width: 34%; height:auto; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px;
+                 transform: scaleX(-1); border: 2px solid rgba(255,255,255,.85); box-shadow: 0 2px 10px rgba(0,0,0,.3); background:#222; }
+  .stage.selfonly .self { inset:0; width:100%; height:100%; border:0; border-radius:0; box-shadow:none; }
+  .stage .tag { position:absolute; left:8px; top:8px; font-size: 12px; font-weight: 700; color:#fff; background: rgba(22,20,112,.65);
+                padding: 2px 9px; border-radius: 6px; }
+  .stage.selfonly .tag { display:none; }
+  /* 그림 면접관: 일정 간격으로 끄덕이고, 눈을 깜빡이고, 질문할 때 입을 움직임 */
+  #exSvg .head { transform-origin: 160px 150px; }
+  #exSvg .face { transform-origin: 160px 150px; }
+  #exSvg .eye { transform-box: fill-box; transform-origin: center; animation: exBlink 4.3s infinite; }
+  #exSvg .mouth { transform-box: fill-box; transform-origin: center; }
+  #exSvg.nod .head { animation: exNod 5.2s ease-in-out infinite; }
+  #exSvg.nod .face { animation: exNodFace 5.2s ease-in-out infinite; }
+  #exSvg.talk .mouth { animation: exTalk .32s ease-in-out infinite alternate; }
+  @keyframes exNod { 0%, 30%, 100% { transform: translateY(0); } 5% { transform: translateY(4px); } 10% { transform: translateY(0); }
+                     15% { transform: translateY(4px); } 21% { transform: translateY(0); } }
+  @keyframes exNodFace { 0%, 30%, 100% { transform: translateY(0); } 5% { transform: translateY(3px); } 10% { transform: translateY(0); }
+                         15% { transform: translateY(3px); } 21% { transform: translateY(0); } }
+  @keyframes exBlink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+  @keyframes exTalk { from { transform: scaleY(.5); } to { transform: scaleY(1.6); } }
+  .opts { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .opts label.chk { display:flex; align-items:center; gap:10px; margin: 8px 0; color: var(--ink); font-weight: 600; font-size: 15px; cursor:pointer; }
+  .opts label.chk input { width: 20px; height: 20px; accent-color: var(--navy); }
+  .opts label.chk small { color: var(--muted); font-weight: 500; }
+  .opts .stage { max-width: 360px; margin: 10px 0 0; }
+  .panel .stage { max-width: 440px; margin-left:auto; margin-right:auto; }
+
   /* 결과 */
   .fb { white-space: pre-wrap; font-size: 15px; line-height: 1.75; }
   .trans { background:#f8f9fc; border:1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; white-space: pre-wrap; color:#3b3f5c; }
@@ -212,6 +243,58 @@
         <div id="micArea" class="hidden">
           <p class="sub" style="margin:12px 0 0">아무 말이나 해보세요. 막대가 움직이면 정상입니다.</p>
           <div class="meter"><div id="micLevel"></div></div>
+          <div class="opts">
+            <b style="color:var(--navy)">시험 화면 설정</b>
+            <label class="chk"><input type="checkbox" id="optExaminer" checked> 면접관 화면 보기 <small>— 답변하는 동안 고개를 끄덕이며 들어요</small></label>
+            <label class="chk"><input type="checkbox" id="optSelf"> 내 얼굴 보기 <small>— 카메라 사용, 녹화·저장되지 않아요</small></label>
+            <div id="optMsg" class="msg hidden"></div>
+            <div id="previewSlot">
+              <div class="stage hidden" id="stage">
+                <video id="exv" class="hidden" muted loop playsinline webkit-playsinline preload="auto"></video>
+                <svg id="exSvg" viewBox="0 0 320 240" aria-label="면접관">
+                  <defs>
+                    <linearGradient id="exWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8ebf3"/><stop offset="1" stop-color="#cfd5e4"/></linearGradient>
+                    <linearGradient id="exDesk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b98a5e"/><stop offset="1" stop-color="#94673f"/></linearGradient>
+                  </defs>
+                  <rect width="320" height="240" fill="url(#exWall)"/>
+                  <rect x="22" y="26" width="66" height="50" rx="3" fill="#f7f8fb" stroke="#b7bfd3" stroke-width="3"/>
+                  <path d="M30 68 L48 48 L60 60 L70 52 L82 68 Z" fill="#c4cde0"/>
+                  <rect x="246" y="20" width="52" height="64" rx="3" fill="#e1e6f0" stroke="#b7bfd3" stroke-width="2"/>
+                  <line x1="254" y1="34" x2="290" y2="34" stroke="#b7bfd3" stroke-width="3"/><line x1="254" y1="44" x2="284" y2="44" stroke="#b7bfd3" stroke-width="3"/>
+                  <!-- 몸 -->
+                  <path d="M78 240 C80 186 104 166 136 158 L184 158 C216 166 240 186 242 240 Z" fill="#2b2f4a"/>
+                  <path d="M142 158 L160 196 L178 158 Z" fill="#f4f5f8"/>
+                  <path d="M136 158 L160 200 L150 240 M184 158 L160 200 L170 240" fill="none" stroke="#1d2036" stroke-width="3"/>
+                  <rect x="148" y="128" width="24" height="34" rx="10" fill="#e5b48f"/>
+                  <!-- 머리 (끄덕임) -->
+                  <g class="head">
+                    <ellipse cx="122" cy="98" rx="7" ry="11" fill="#e5b48f"/><ellipse cx="198" cy="98" rx="7" ry="11" fill="#e5b48f"/>
+                    <ellipse cx="160" cy="94" rx="38" ry="46" fill="#f0c4a0"/>
+                    <path d="M121 92 C116 52 140 40 162 40 C188 40 206 56 199 92 C196 72 186 62 170 60 C150 64 134 62 126 70 C123 76 122 84 121 92 Z" fill="#4a3528"/>
+                    <g class="face">
+                      <path d="M136 80 Q145 75 153 79 M167 79 Q175 75 184 80" fill="none" stroke="#4a3528" stroke-width="3" stroke-linecap="round"/>
+                      <ellipse class="eye" cx="145" cy="92" rx="4" ry="4.6" fill="#2a1f1a"/><ellipse class="eye" cx="175" cy="92" rx="4" ry="4.6" fill="#2a1f1a"/>
+                      <rect x="134" y="83" width="22" height="17" rx="6" fill="none" stroke="#3b3f5c" stroke-width="2"/>
+                      <rect x="164" y="83" width="22" height="17" rx="6" fill="none" stroke="#3b3f5c" stroke-width="2"/>
+                      <line x1="156" y1="90" x2="164" y2="90" stroke="#3b3f5c" stroke-width="2"/>
+                      <path d="M160 98 Q157 108 161 110" fill="none" stroke="#c99472" stroke-width="2" stroke-linecap="round"/>
+                      <ellipse cx="139" cy="111" rx="6" ry="3.5" fill="#f2a99a" opacity=".45"/><ellipse cx="181" cy="111" rx="6" ry="3.5" fill="#f2a99a" opacity=".45"/>
+                      <path d="M150 119 Q160 125 170 119" fill="none" stroke="#a5523f" stroke-width="2.4" stroke-linecap="round"/>
+                      <ellipse class="mouth" cx="160" cy="121" rx="7" ry="2" fill="#8c3b2c"/>
+                    </g>
+                  </g>
+                  <!-- 책상 -->
+                  <rect x="0" y="204" width="320" height="36" fill="url(#exDesk)"/>
+                  <rect x="0" y="202" width="320" height="4" fill="#cfa274"/>
+                  <rect x="196" y="190" width="70" height="20" rx="2" fill="#fbfbfd" transform="rotate(-4 231 200)"/>
+                  <line x1="204" y1="196" x2="256" y2="192" stroke="#c8cede" stroke-width="2"/><line x1="205" y1="202" x2="248" y2="199" stroke="#c8cede" stroke-width="2"/>
+                  <rect x="60" y="196" width="46" height="5" rx="2.5" fill="#161470" transform="rotate(-12 83 198)"/>
+                </svg>
+                <span class="tag">Examiner</span>
+                <video id="selfv" class="self hidden" muted autoplay playsinline webkit-playsinline></video>
+              </div>
+            </div>
+          </div>
           <button id="btnStart" class="gold">시험 시작</button>
         </div>
         <div id="micMsg" class="msg hidden"></div>
@@ -242,6 +325,7 @@
         <div id="memoWrap" class="hidden"><label for="memo">메모 (제출되지 않아요)</label><textarea id="memo" rows="6"></textarea></div>
       </div>
       <div class="card panel">
+        <div id="panelSlot"></div>
         <div id="phase" class="phase hidden"><span class="dot"></span><span id="phaseText"></span></div>
         <div id="timer" class="timer hidden"></div>
         <div class="meter hidden" id="qMeter"><div id="qLevel"></div></div>
@@ -307,8 +391,8 @@ async function apiPost(payload) {
     return d;
   } catch (e) { if (e.server) throw e; }
   await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
-  for (let i = 0; i < 10; i++) {
-    await sleep(1500);
+  for (let i = 0; i < 30; i++) {                     // 서버가 바쁠 때를 위해 최대 약 60초까지 확인
+    await sleep(i < 10 ? 1500 : 3000);
     try {
       const d = await fetch(`${API_URL}?action=status&id=${payload.reqId}`, { cache: 'no-store' }).then(r => r.json());
       if (d.ok) return d;
@@ -316,6 +400,14 @@ async function apiPost(payload) {
     } catch (e) { if (e.server) throw e; }
   }
   throw new Error('서버 응답을 확인하지 못했습니다.');
+}
+/* 여러 학생이 동시에 다시 보내 몰리지 않도록, 기다리는 시간을 조금씩 늘리고 무작위로 섞음 */
+const backoff = a => sleep(Math.min(20000, 2500 * a) + Math.random() * 3000);
+async function apiPostRetry(payload, tries = 5) {
+  for (let a = 1; ; a++) {
+    try { payload.reqId = rid(); return await apiPost(payload); }
+    catch (e) { if (a >= tries) throw e; await backoff(a); }
+  }
 }
 
 /* ================= 상태 ================= */
@@ -486,11 +578,12 @@ async function loadExam(setId) {
 /* ================= 오디오 엔진 (Web Audio → WAV) ================= */
 const A = { ctx: null, stream: null, proc: null, recording: false, chunks: [], peak: 0, level: 0, rate: 48000 };
 
+const MIC_OPTS = { audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } };
 async function initAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
   A.ctx = new AC();                                   // 사용자 터치 직후 생성 (iPad 필수)
   if (A.ctx.state === 'suspended') await A.ctx.resume();
-  A.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+  A.stream = await navigator.mediaDevices.getUserMedia(MIC_OPTS);
   A.rate = A.ctx.sampleRate;
   const src = A.ctx.createMediaStreamSource(A.stream);
   A.proc = A.ctx.createScriptProcessor(4096, 1, 1);
@@ -507,6 +600,17 @@ async function initAudio() {
     const w = Math.min(100, A.level * 160) + '%';
     $('micLevel').style.width = w; $('qLevel').style.width = w;
   }, 80);
+}
+/* 일부 iPad에서 카메라를 켜면 마이크 연결이 끊길 수 있어, 끊겼으면 다시 연결 */
+async function ensureMic() {
+  const t = A.stream && A.stream.getAudioTracks()[0];
+  if (t && t.readyState === 'live') return;
+  try {
+    A.stream = await navigator.mediaDevices.getUserMedia(MIC_OPTS);
+    const src = A.ctx.createMediaStreamSource(A.stream);
+    try { A.src.disconnect(); } catch (_) {}
+    src.connect(A.proc); A.src = src;
+  } catch (_) {}
 }
 function startRec() { A.chunks = []; A.peak = 0; A.recording = true; }
 function stopRec() {
@@ -541,6 +645,55 @@ function beep() {
   } catch (_) {}
   return sleep(350);
 }
+
+/* ================= 면접관 화면 + 내 얼굴 ================= */
+/* 면접관: exam.html과 같은 폴더에 examiner.mp4가 있으면 그 영상(소리 끔, 반복), 없으면 그림 면접관 */
+const VIEW_KEY = 'ielts_exam_view';
+const VIEW = { examiner: true, self: false, cam: null, exVideoOk: false, probed: false };
+try { Object.assign(VIEW, JSON.parse(localStorage.getItem(VIEW_KEY) || '{}'), { cam: null, exVideoOk: false, probed: false }); } catch (_) {}
+function saveView() { try { localStorage.setItem(VIEW_KEY, JSON.stringify({ examiner: VIEW.examiner, self: VIEW.self })); } catch (_) {} }
+function probeExaminerVideo() {
+  if (VIEW.probed) return; VIEW.probed = true;
+  const v = $('exv'); v.muted = true;                 // 소리가 나면 녹음에 섞이므로 반드시 음소거
+  v.onloadeddata = () => { VIEW.exVideoOk = true; updateStage(); };
+  v.onerror = () => { VIEW.exVideoOk = false; updateStage(); };
+  v.src = 'examiner.mp4';
+}
+function updateStage() {
+  const showEx = VIEW.examiner, showSelf = !!(VIEW.self && VIEW.cam);
+  vis('stage', showEx || showSelf);
+  $('stage').classList.toggle('selfonly', !showEx && showSelf);
+  vis('exv', showEx && VIEW.exVideoOk); vis('exSvg', showEx && !VIEW.exVideoOk); vis('selfv', showSelf);
+}
+/* mode: 'idle' 가만히 / 'talk' 질문하는 중 / 'nod' 끄덕이며 듣는 중 */
+function setExaminer(mode) {
+  const svg = $('exSvg');
+  svg.classList.toggle('talk', mode === 'talk'); svg.classList.toggle('nod', mode === 'nod');
+  const v = $('exv');
+  if (mode === 'nod' && VIEW.exVideoOk && VIEW.examiner) v.play().catch(() => {}); else v.pause();
+}
+async function cameraOn() {
+  if (VIEW.cam) return;
+  VIEW.cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+  const v = $('selfv'); v.srcObject = VIEW.cam; v.play().catch(() => {});
+  await ensureMic();
+  updateStage();
+}
+function cameraOff() {
+  try { VIEW.cam && VIEW.cam.getTracks().forEach(t => t.stop()); } catch (_) {}
+  VIEW.cam = null; $('selfv').srcObject = null; updateStage();
+}
+async function applySelfOption() {
+  vis('optMsg', false);
+  if (!VIEW.self) return cameraOff();
+  try { await cameraOn(); }
+  catch (e) {
+    VIEW.self = false; $('optSelf').checked = false; saveView(); cameraOff();
+    msg($('optMsg'), 'warn', e.name === 'NotAllowedError' ? '카메라 권한이 없어 내 얼굴 보기를 끌게요. (시험은 그대로 볼 수 있어요)' : '카메라를 켤 수 없어 내 얼굴 보기를 끌게요. (시험은 그대로 볼 수 있어요)');
+  }
+}
+$('optExaminer').onchange = e => { VIEW.examiner = e.target.checked; saveView(); updateStage(); setExaminer('nod'); };
+$('optSelf').onchange = e => { VIEW.self = e.target.checked; saveView(); applySelfOption(); };
 
 /* ================= 교사 녹음 음성 ================= */
 /* 시험 시작 전에 모두 받아 두고, 마이크와 같은 AudioContext로 재생 (iPad에서도 안정적) */
@@ -665,13 +818,14 @@ async function pump() {
     if (it.status === '완료' || it.status === '전송중') continue;
     if (it.status === '실패' && !it.retry) continue;
     it.retry = false; it.status = '전송중'; renderUp();
-    for (let a = 1; a <= 3; a++) {
+    const TRIES = 6;
+    for (let a = 1; a <= TRIES; a++) {
       try {
         if (!it.payload.audio) it.payload.audio = await blobToBase64(it.blob);
         it.payload.reqId = rid();
         await apiPost(it.payload);
         it.status = '완료'; break;
-      } catch (e) { it.error = e.message; if (a < 3) await sleep(2000 * a); else it.status = '실패'; }
+      } catch (e) { it.error = e.message; if (a < TRIES) await backoff(a); else it.status = '실패'; }
     }
     renderUp();
   }
@@ -704,6 +858,9 @@ $('btnMic').onclick = async () => {
   try {
     await initAudio();
     vis('btnMic', false); vis('micArea', true); vis('micMsg', false);
+    $('optExaminer').checked = VIEW.examiner; $('optSelf').checked = VIEW.self;
+    probeExaminerVideo(); updateStage(); setExaminer('nod');   // 미리보기
+    applySelfOption();
   } catch (e) {
     $('btnMic').disabled = false;
     msg($('micMsg'), 'bad', (e.name === 'NotAllowedError' ? '마이크 권한이 거부되었습니다. 주소창의 사이트 설정에서 마이크를 허용한 뒤 새로고침하세요.' : '마이크를 켤 수 없습니다: ' + (e.message || e.name)));
@@ -714,7 +871,8 @@ $('btnStart').onclick = async () => {
 
   S.attemptId = `${S.set.id}-${S.sid || S.email.split('@')[0]}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 5)}`;
   window.onbeforeunload = () => '시험이 진행 중입니다.';
-  apiPost({ action: 'start', session: S.session, setId: S.set.id, attemptId: S.attemptId, device }).catch(() => {});
+  $('panelSlot').appendChild($('stage')); setExaminer('idle'); updateStage();   // 면접관 화면을 시험 화면 오른쪽으로
+  apiPostRetry({ action: 'start', session: S.session, setId: S.set.id, attemptId: S.attemptId, device }).catch(() => {});
   S.idx = 0; runExam();
 };
 
@@ -766,7 +924,11 @@ async function runExam() {
     let played = false;
     if (q.video) played = await playVideo(q.video);
     if (!played && q.videoFileId) played = await playFileVideo(q);
-    if (!played && q.audioBuf) { vis('listening', true); played = await playAudio(q.audioBuf); vis('listening', false); }
+    if (!played && q.audioBuf) {
+      vis('listening', true); setExaminer('talk');
+      played = await playAudio(q.audioBuf);
+      vis('listening', false); setExaminer('idle');
+    }
     if (!played) {
       $('qText').textContent = q.text;                // 들려줄 수단이 없으면 글자로 보여줌
       setPhase('prep', '질문을 읽어 보세요');
@@ -783,13 +945,14 @@ async function runExam() {
     }
 
     // 답변 녹음
+    await ensureMic();
     await beep();
     startRec();
     setPhase('rec', '녹음 중 — 답변하세요');
-    vis('qMeter', true);
+    vis('qMeter', true); setExaminer('nod');
     await countdown(q.answer, $('btnEnd'), MIN_ANSWER_SEC);
     const rec = stopRec();
-    vis('qMeter', false); setPhase('', '');
+    vis('qMeter', false); setPhase('', ''); setExaminer('idle');
 
     enqueue({
       label: `P${q.part}-${q.order}`, blob: rec.blob, duration: rec.duration,
@@ -800,6 +963,7 @@ async function runExam() {
   }
   $('prog').style.width = '100%';
   examFinished = true;
+  setExaminer('idle'); cameraOff();
   show('vDone'); renderUp();
   if (!uploading) finalize();
 }
@@ -821,7 +985,7 @@ async function finalize() {
   }
   if (!finalized || !failed.length) {
     finalized = true;
-    apiPost({ action: 'finish', session: S.session, attemptId: S.attemptId,
+    apiPostRetry({ action: 'finish', session: S.session, attemptId: S.attemptId,
               count: Q.filter(i => i.status === '완료').length, complete: !failed.length }).catch(() => {});
   }
 }
