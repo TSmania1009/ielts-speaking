@@ -99,7 +99,20 @@
   .fb { white-space: pre-wrap; font-size: 15px; line-height: 1.75; }
   .trans { background:#f8f9fc; border:1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; white-space: pre-wrap; color:#3b3f5c; }
   .tagq { font-size: 12px; font-weight: 800; color: var(--navy); background: var(--gold-soft); border:1px solid #f3dc8f; border-radius: 6px; padding: 2px 9px; }
-  .rgrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 16px; }
+  .rgrid { display:grid; grid-template-columns: 1fr; gap: 16px; }
+  .rhead { display:flex; align-items:center; gap: 14px; flex-wrap: wrap; }
+  .rhead .qtext { flex: 1; min-width: 260px; margin: 0; font-size: 18px; }
+  .fbgrid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+  .fbsec { border-radius: 12px; padding: 14px 16px 16px; border: 1px solid var(--line); background: #fafbfe; }
+  .fbsec h3 { margin: 0 0 8px; font-size: 15px; display:flex; align-items:center; gap: 8px; }
+  .fbsec h3 .ic { width: 26px; height: 26px; border-radius: 50%; display:inline-grid; place-items:center; font-size: 14px; color:#fff; }
+  .fbsec .body { white-space: pre-wrap; font-size: 15px; line-height: 1.75; }
+  .fbsec.good { background: #f0faf5; border-color: #cdebdc; } .fbsec.good h3 { color: var(--ok); } .fbsec.good .ic { background: var(--ok); }
+  .fbsec.fix { background: var(--gold-soft); border-color: #f3dc8f; } .fbsec.fix h3 { color: var(--gold-ink); } .fbsec.fix .ic { background: var(--gold); color: var(--navy); }
+  .fbsec.say { background: var(--navy-soft); border-color: #d4d2f3; } .fbsec.say h3 { color: var(--navy); } .fbsec.say .ic { background: var(--navy); }
+  .fbsec.plain { grid-column: 1 / -1; }
+  @media (max-width: 1000px) { .fbgrid { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .brand span, .topnav .who { display:none; } .topnav img { height: 38px; } }
   .rgrid .card { margin: 0; }
   .summary { border-top: 5px solid var(--gold); }
   audio { width: 100%; margin-top: 8px; }
@@ -396,6 +409,29 @@ async function loadResults() {
     });
   } catch (e) { box.innerHTML = '<p class="empty">결과를 불러오지 못했습니다.</p>'; }
 }
+/* 피드백을 '잘한 점 / 고칠 점 / 이렇게 말해 보세요' 칸으로 나눠 보여주기 */
+const FB_SECTIONS = [
+  { key: 'good', re: /잘한\s*점/, title: '잘한 점', ic: '✓' },
+  { key: 'fix', re: /고칠\s*점|개선할\s*점/, title: '고칠 점', ic: '!' },
+  { key: 'say', re: /이렇게\s*말해\s*보세요|모범\s*답변|예시\s*답변/, title: '이렇게 말해 보세요', ic: '💬' }
+];
+function feedbackHtml(text) {
+  text = String(text || '').trim();
+  if (!text) return '<div class="fbgrid"><div class="fbsec plain"><div class="body">(피드백 없음)</div></div></div>';
+  const parts = {}; let cur = null, pre = [];
+  text.split(/\r?\n/).forEach(line => {
+    const m = line.match(/^\s*[\[【#*]*\s*(잘한\s*점|고칠\s*점|개선할\s*점|이렇게\s*말해\s*보세요|모범\s*답변|예시\s*답변)(?:\s*[\]】*]+\s*[:：]?|\s*[:：]|\s*$)\s*(.*)$/);
+    const sec = m && FB_SECTIONS.find(s => s.re.test(m[1]));
+    if (sec) { cur = sec.key; parts[cur] = parts[cur] || []; if (m[2].trim()) parts[cur].push(m[2]); return; }
+    (cur ? parts[cur] : pre).push(line);
+  });
+  const clean = arr => (arr || []).join('\n').replace(/^\s*\n+|\n+\s*$/g, '');
+  if (!Object.keys(parts).length) return `<div class="fbgrid"><div class="fbsec plain"><div class="body">${escapeHtml(text)}</div></div></div>`;
+  let html = '';
+  if (clean(pre)) html += `<div class="fbsec plain"><div class="body">${escapeHtml(clean(pre))}</div></div>`;
+  FB_SECTIONS.forEach(s => { if (clean(parts[s.key])) html += `<div class="fbsec ${s.key}"><h3><span class="ic">${s.ic}</span>${s.title}</h3><div class="body">${escapeHtml(clean(parts[s.key]))}</div></div>`; });
+  return `<div class="fbgrid">${html}</div>`;
+}
 function openResult(i) {
   const r = RESULTS[i];
   $('resTitle').textContent = r.setTitle; $('resDate').textContent = r.date + ' 응시';
@@ -403,11 +439,11 @@ function openResult(i) {
   const box = $('resAnswers'); box.innerHTML = '';
   r.answers.forEach(a => {
     const el = document.createElement('div'); el.className = 'card';
-    el.innerHTML = `<span class="tagq">Part ${a.part} · ${a.order}</span>
-      <div class="qtext" style="font-size:18px; margin-top:10px">${escapeHtml(a.question)}</div>
-      <button class="secondary" style="width:auto; margin-top:0; padding:10px 16px; font-size:14px">▶ 내 답변 듣기</button><div data-p></div>
-      ${a.transcript ? `<p class="sub" style="margin:12px 0 4px">내 답변 받아쓰기 (AI가 받아 적어 일부 틀릴 수 있어요)</p><div class="trans">${escapeHtml(a.transcript)}</div>` : ''}
-      <p class="sub" style="margin:12px 0 4px">피드백</p><div class="fb">${escapeHtml(a.feedback || '(피드백 없음)')}</div>`;
+    el.innerHTML = `<div class="rhead"><span class="tagq">Part ${a.part} · ${a.order}</span>
+        <div class="qtext">${escapeHtml(a.question)}</div>
+        <button class="secondary" style="width:auto; margin:0; padding:10px 16px; font-size:14px">▶ 내 답변 듣기</button></div>
+      <div data-p></div>
+      ${feedbackHtml(a.feedback)}`;
     const btn = el.querySelector('button');
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = '불러오는 중…';
