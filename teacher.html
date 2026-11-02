@@ -17,7 +17,7 @@
             border-bottom: 4px solid var(--gold); position: sticky; top: 0; z-index: 6; }
   .topnav img { height: 44px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
   .brand { display:flex; flex-direction:column; line-height:1.2; } .brand b { font-size: 18px; } .brand span { font-size: 12px; color: var(--gold-2); letter-spacing: 1.5px; }
-  .topnav .tabs { margin: 0 0 0 auto; }
+  .topnav .tabs { margin: 0; }
   main { padding: 22px clamp(16px, 2.5vw, 40px) 80px; }
   h1 { font-size: 22px; margin: 0 0 4px; color: var(--navy); }
   h2 { font-size: 17px; margin: 0; color: var(--navy); display:flex; align-items:center; gap: 8px; flex-wrap: wrap; }
@@ -107,6 +107,8 @@
 <header class="topnav">
   <img src="cnsa-logo.png" alt="CNSA">
   <div class="brand"><b>IELTS Speaking · 교사용</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div>
+  <span class="hint hidden" id="whoami" style="color:#d9d8f5; margin-left:auto"></span>
+  <button class="hidden" id="btnLogout" style="background: rgba(255,255,255,.12); padding: 7px 12px; font-size: 13px">로그아웃</button>
   <div class="tabs hidden" id="tabsBar"><button class="tab on" data-tab="author">출제</button><button class="tab" data-tab="grade">채점</button></div>
 </header>
 <main>
@@ -114,10 +116,9 @@
     <img src="cnsa-logo.png" alt="CNSA">
     <h1>교사용 페이지</h1>
     <p class="sub">출제(차수·질문·음성/영상)와 채점(AI 초안 검토·피드백 공개)을 합니다.</p>
-    <div class="row">
-      <input type="password" id="key" placeholder="교사 키" autocomplete="off" style="flex:1; min-width:160px">
-      <button id="btnLogin">들어가기</button>
-    </div>
+    <p class="sub" style="margin:0">교사로 등록된 학교 Google 계정으로 로그인하세요.</p>
+    <div id="gbtn" style="display:flex; justify-content:center; margin: 18px 0 6px; min-height: 44px"></div>
+    <div id="loginMsg" class="hint" style="color: var(--bad); white-space: pre-line"></div>
   </section>
 
   <section id="vMain" class="hidden">
@@ -159,10 +160,12 @@ let KEY = '', SETS = [], CUR = '';
 /* ---------------- API ---------------- */
 async function apiGet(params) {
   const r = await fetch(`${API_URL}?${new URLSearchParams(params)}`, { cache: 'no-store' });
-  const d = await r.json(); if (!d.ok) throw Object.assign(new Error(d.error), { server: true }); return d;
+  const d = await r.json();
+  if (!d.ok) { if (/로그인이 만료|교사 권한/.test(d.error || '') && params.action !== 'login') setTimeout(onExpired, 0); throw Object.assign(new Error(d.error), { server: true }); }
+  return d;
 }
 async function apiPost(payload) {
-  payload.key = KEY; payload.reqId = rid(); const body = JSON.stringify(payload);
+  payload.session = KEY; payload.reqId = rid(); const body = JSON.stringify(payload);
   try { const d = await fetch(API_URL, { method: 'POST', body }).then(r => r.json());
         if (!d.ok) throw Object.assign(new Error(d.error), { server: true }); return d; }
   catch (e) { if (e.server) throw e; }
@@ -185,20 +188,56 @@ async function busy(btn, label, fn) {
   finally { btn.disabled = false; btn.textContent = old; }
 }
 
-/* ---------------- 로그인/불러오기 ---------------- */
-$('btnLogin').onclick = () => busy($('btnLogin'), '확인 중…', async () => {
-  KEY = $('key').value.trim();
+/* ---------------- 로그인 (교사 Google 계정) ---------------- */
+const TKEY = 'ielts_teacher_session';
+async function enter(user) {
   await reload();
-  try { sessionStorage.setItem('tkey', KEY); } catch (_) {}
-  $('vLogin').classList.add('hidden'); $('vMain').classList.remove('hidden'); $('tabsBar').classList.remove('hidden');
+  $('vLogin').classList.add('hidden'); $('vMain').classList.remove('hidden');
+  ['tabsBar', 'whoami', 'btnLogout'].forEach(id => $(id).classList.remove('hidden'));
+  $('whoami').textContent = user.email;
   document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
-});
-$('key').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
-try { const k = sessionStorage.getItem('tkey'); if (k) { $('key').value = k; $('btnLogin').click(); } } catch (_) {}
+}
+function loadGis() {
+  return new Promise((res, rej) => {
+    if (window.google && google.accounts && google.accounts.id) return res();
+    const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+    sc.onload = res; sc.onerror = () => rej(new Error('Google 로그인 스크립트를 불러오지 못했습니다.'));
+    document.head.appendChild(sc);
+  });
+}
+async function initLogin(note) {
+  $('vLogin').classList.remove('hidden'); $('vMain').classList.add('hidden');
+  ['tabsBar', 'whoami', 'btnLogout'].forEach(id => $(id).classList.add('hidden'));
+  $('loginMsg').textContent = note || '';
+  try {
+    const cfg = await apiGet({ action: 'config' });
+    if (!cfg.clientId) { $('loginMsg').textContent = 'Apps Script 스크립트 속성에 GOOGLE_CLIENT_ID를 먼저 추가하세요.'; return; }
+    await loadGis();
+    google.accounts.id.initialize({ client_id: cfg.clientId, callback: onCredential });
+    $('gbtn').innerHTML = '';
+    google.accounts.id.renderButton($('gbtn'), { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko', width: 280 });
+  } catch (e) { $('loginMsg').textContent = e.message || '서버에 연결할 수 없습니다.'; }
+}
+async function onCredential(resp) {
+  $('loginMsg').textContent = '로그인 확인 중…';
+  try {
+    const d = await apiGet({ action: 'login', role: 'teacher', idToken: resp.credential });
+    KEY = d.session; try { sessionStorage.setItem(TKEY, JSON.stringify(d)); } catch (_) {}
+    $('loginMsg').textContent = '';
+    await enter(d.user);
+  } catch (e) { $('loginMsg').textContent = e.message || '로그인하지 못했습니다.'; }
+}
+function onExpired() { try { sessionStorage.removeItem(TKEY); } catch (_) {} KEY = ''; initLogin('로그인이 만료되었습니다. 다시 로그인하세요.'); }
+$('btnLogout').onclick = () => { try { sessionStorage.removeItem(TKEY); google.accounts.id.disableAutoSelect(); } catch (_) {} location.reload(); };
+(async () => {
+  let saved = null; try { saved = JSON.parse(sessionStorage.getItem(TKEY) || 'null'); } catch (_) {}
+  if (saved && saved.session) { KEY = saved.session; try { await enter(saved.user); return; } catch (e) { try { sessionStorage.removeItem(TKEY); } catch (_) {} } }
+  initLogin();
+})();
 $('btnReload').onclick = () => busy($('btnReload'), '불러오는 중…', reload);
 
 async function reload(selectId) {
-  SETS = (await apiGet({ action: 'tsets', key: KEY })).sets;
+  SETS = (await apiGet({ action: 'tsets', session: KEY })).sets;
   if (selectId) CUR = selectId;
   if (!SETS.find(s => s.id === CUR)) CUR = SETS.length ? SETS[SETS.length - 1].id : '';
   render();
@@ -357,7 +396,7 @@ function questionCard(s, q, idx, n) {
   };
 
   const fetchMedia = async (id, kind, btn) => busy(btn, '불러오는 중…', async () => {
-    const d = await apiGet({ action: 'qaudio', key: KEY, id });
+    const d = await apiGet({ action: 'qaudio', session: KEY, id });
     const url = URL.createObjectURL(b64ToBlob(d.data, d.mime));
     f('preview').innerHTML = kind === 'video' ? `<video controls playsinline autoplay src="${url}"></video>` : `<audio controls autoplay src="${url}"></audio>`;
   });
@@ -482,7 +521,7 @@ function fillSetFilter() {
 }
 $('gSet').onchange = renderAttempts; $('gStatus').onchange = renderAttempts;
 $('gReload').onclick = () => busy($('gReload'), '불러오는 중…', loadAttempts);
-async function loadAttempts() { GA = (await apiGet({ action: 'tattempts', key: KEY })).attempts; renderAttempts(); }
+async function loadAttempts() { GA = (await apiGet({ action: 'tattempts', session: KEY })).attempts; renderAttempts(); }
 const pillCls = g => 'pill ' + (g === '미채점' ? 'st-미채점' : g === 'AI 초안' ? 'st-ai' : g === '검토 중' ? 'st-검토' : 'st-공개');
 function renderAttempts() {
   const set = $('gSet').value, st = $('gStatus').value;
@@ -490,7 +529,7 @@ function renderAttempts() {
   $('gRows').innerHTML = list.length ? '' : '<div class="card sub">응시 기록이 없습니다.</div>';
   list.forEach(a => {
     const el = document.createElement('div'); el.className = 'card arow';
-    el.innerHTML = `<div><b>${esc(a.name)}</b> <span class="hint">${esc(a.sid)}</span><div class="hint">${esc(a.setTitle)} · ${esc(a.start)} · 답변 ${a.answers}개${a.status && a.status !== '완료' ? ' · ' + esc(a.status) : ''}</div></div>
+    el.innerHTML = `<div><b>${esc(a.name)}</b> <span class="hint">${esc(a.sid || '')} ${esc(a.email || '')}</span><div class="hint">${esc(a.setTitle)} · ${esc(a.start)} · 답변 ${a.answers}개${a.status && a.status !== '완료' ? ' · ' + esc(a.status) : ''}</div></div>
       <div style="text-align:right"><span class="${pillCls(a.grade)}">${esc(a.grade)}</span>${a.band ? `<div class="hint" style="margin-top:4px">Band ${esc(a.band)}</div>` : ''}</div>`;
     el.onclick = () => openAttempt(a.attemptId);
     $('gRows').appendChild(el);
@@ -498,7 +537,7 @@ function renderAttempts() {
 }
 function showList() { $('gList').classList.remove('hidden'); $('gDetail').classList.add('hidden'); }
 async function openAttempt(id) {
-  try { const d = await apiGet({ action: 'tattempt', key: KEY, id }); renderDetail(d); }
+  try { const d = await apiGet({ action: 'tattempt', session: KEY, id }); renderDetail(d); }
   catch (e) { toast(e.message, true); }
 }
 
@@ -514,7 +553,7 @@ function renderDetail(d) {
   box.innerHTML = `
     <div class="row between" style="margin-bottom:12px"><button class="plain" data-back>← 목록</button><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></div>
    <div class="gd"><div class="gd-main">
-    <div class="card"><h2>${esc(a.name)} <span class="hint">${esc(a.sid)}</span></h2>
+    <div class="card"><h2>${esc(a.name)} <span class="hint">${esc(a.sid || '')} ${esc(a.email || '')}</span></h2>
       <div class="hint">${esc(a.setTitle)} · ${esc(a.start)}${a.end ? ' ~ ' + esc(a.end.slice(11)) : ''} · ${esc(a.status || '')}</div>
       <div class="row" style="margin-top:12px"><button data-ai>🤖 AI 초안 ${hasDraft ? '다시 ' : ''}만들기</button>
         ${hasDraft ? '<label class="switch"><input type="checkbox" data-ow> 학생 피드백도 새 초안으로 덮어쓰기</label>' : ''}
@@ -560,7 +599,7 @@ function answerCard(x) {
     <label class="f">학생에게 줄 피드백</label><textarea rows="7" data-fb placeholder="AI 초안을 만들면 채워집니다.">${esc(x.teacherFeedback)}</textarea>`;
   const f = n => el.querySelector(`[data-${n}]`);
   f('listen').onclick = () => busy(f('listen'), '불러오는 중…', async () => {
-    const d = await apiGet({ action: 'tanswerAudio', key: KEY, fileId: x.fileId });
+    const d = await apiGet({ action: 'tanswerAudio', session: KEY, fileId: x.fileId });
     f('player').innerHTML = `<audio controls autoplay src="${URL.createObjectURL(b64ToBlob(d.data, d.mime))}"></audio>`;
   });
   el._update = r => {

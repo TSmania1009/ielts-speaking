@@ -106,6 +106,10 @@
   table { width:100%; border-collapse: collapse; font-size: 15px; }
   td, th { padding: 10px 6px; border-bottom: 1px solid var(--line); text-align:left; } th { color: var(--muted); font-size: 13px; }
   td.ok { color: var(--ok); font-weight: 700; } td.bad { color: var(--bad); font-weight: 700; } td.warn { color: var(--warn); }
+  .gbox { margin-top: 22px; min-height: 48px; display:flex; }
+  .gnote { font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
+  .logout { width:auto; margin:0 0 0 12px; padding: 7px 14px; font-size: 13px; background: rgba(255,255,255,.12); color:#fff; border-radius: 8px; }
+  .logout:hover { background: rgba(255,255,255,.22); }
   .back { width:auto; margin: 0 0 14px; padding: 9px 16px; font-size: 14px; }
 
   @media (max-width: 900px) {
@@ -120,6 +124,7 @@
   <img src="cnsa-logo.png" alt="CNSA">
   <div class="brand"><b>IELTS Speaking</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div>
   <div class="who" id="whoami"></div>
+  <button class="logout hidden" id="btnLogout">로그아웃</button>
 </header>
 <main>
 
@@ -134,11 +139,10 @@
       </div>
       <div class="form">
         <h2>로그인</h2>
-        <p class="sub" style="margin:0">학번과 선생님께 받은 코드를 입력하세요.</p>
-        <label for="sid">학번</label><input type="text" id="sid" inputmode="numeric" autocomplete="off">
-        <label for="code">코드</label><input type="password" id="code" inputmode="numeric" autocomplete="off">
-        <button id="btnLogin">로그인</button>
+        <p class="sub" style="margin:0">학교 Google 계정(<b id="domainNote">@cnsa.hs.kr</b>)으로 로그인하세요.</p>
+        <div class="gbox" id="gbtn"></div>
         <div id="loginMsg" class="msg hidden"></div>
+        <p class="gnote">개인 Gmail 계정으로는 응시할 수 없어요. 로그인 창이 뜨지 않으면 팝업 차단을 해제하거나, 카카오톡 등 앱 안의 브라우저가 아닌 Chrome·Safari에서 열어 주세요.</p>
       </div>
     </div>
   </section>
@@ -298,30 +302,74 @@ async function apiPost(payload) {
 }
 
 /* ================= 상태 ================= */
-const S = { sid: '', code: '', name: '', set: null, questions: [], attemptId: '', idx: 0 };
+const S = { session: '', user: null, sid: '', email: '', name: '', set: null, questions: [], attemptId: '', idx: 0 };
 
-/* ================= 1. 로그인 ================= */
-$('btnLogin').onclick = async () => {
-  const sid = $('sid').value.trim(), code = $('code').value.trim();
-  if (!sid || !code) return msg($('loginMsg'), 'warn', '학번과 코드를 입력하세요.');
+/* ================= 1. 로그인 (학교 Google 계정) ================= */
+const SKEY = 'ielts_student_session';
+function saveSession() { try { sessionStorage.setItem(SKEY, JSON.stringify({ session: S.session, user: S.user })); } catch (_) {} }
+function clearSession() { try { sessionStorage.removeItem(SKEY); } catch (_) {} }
+function applyUser(u) {
+  S.user = u; S.name = u.name; S.sid = u.sid || ''; S.email = u.email;
+  $('whoami').textContent = `${u.name}${u.sid ? ' · ' + u.sid : ''} · ${u.email}`;
+  vis('btnLogout', true);
+}
+async function enterWithSession() {
+  const d = await apiGet({ action: 'sets', session: S.session });
+  renderSets(d.sets);
+}
+function loadGis() {
+  return new Promise((res, rej) => {
+    if (window.google && google.accounts && google.accounts.id) return res();
+    const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = res; s.onerror = () => rej(new Error('Google 로그인 스크립트를 불러오지 못했습니다.'));
+    document.head.appendChild(s);
+  });
+}
+async function initLogin() {
+  show('vLogin');
   if (API_URL.startsWith('PASTE')) return msg($('loginMsg'), 'bad', 'API_URL이 설정되지 않았습니다 (교사용).');
-  $('btnLogin').disabled = true; msg($('loginMsg'), 'warn', '확인 중…');
   try {
-    const d = await apiGet({ action: 'sets', sid, code });
-    Object.assign(S, { sid, code, name: d.student.name });
-    try { localStorage.setItem('ielts_sid', sid); } catch (_) {}
-    renderSets(d.sets);
+    const cfg = await apiGet({ action: 'config' });
+    if (!cfg.clientId) return msg($('loginMsg'), 'bad', 'Google 로그인이 아직 설정되지 않았습니다. 선생님께 알려 주세요.');
+    if (cfg.domain) $('domainNote').textContent = `@${cfg.domain}`;
+    await loadGis();
+    google.accounts.id.initialize({ client_id: cfg.clientId, callback: onCredential, auto_select: false, cancel_on_tap_outside: true });
+    $('gbtn').innerHTML = '';
+    google.accounts.id.renderButton($('gbtn'), { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko', width: 300 });
+  } catch (e) {
+    msg($('loginMsg'), 'bad', e.server ? e.message : (e.message || '서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.'));
+  }
+}
+async function onCredential(resp) {
+  msg($('loginMsg'), 'warn', '로그인 확인 중…');
+  try {
+    const d = await apiGet({ action: 'login', role: 'student', idToken: resp.credential });
+    S.session = d.session; applyUser(d.user); saveSession();
+    vis('loginMsg', false);
+    await enterWithSession();
   } catch (e) {
     msg($('loginMsg'), 'bad', e.server ? e.message : '서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
-  } finally { $('btnLogin').disabled = false; }
+  }
+}
+$('btnLogout').onclick = () => {
+  if (window.onbeforeunload && !confirm('시험이 진행 중입니다. 로그아웃할까요?')) return;
+  window.onbeforeunload = null; clearSession();
+  try { google.accounts.id.disableAutoSelect(); } catch (_) {}
+  location.reload();
 };
-$('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
-try { $('sid').value = localStorage.getItem('ielts_sid') || ''; } catch (_) {}
+(async () => {                                    // 새로고침해도 로그인 유지 (같은 탭, 6시간)
+  let saved = null; try { saved = JSON.parse(sessionStorage.getItem(SKEY) || 'null'); } catch (_) {}
+  if (saved && saved.session) {
+    S.session = saved.session; applyUser(saved.user);
+    try { await enterWithSession(); return; } catch (e) { clearSession(); vis('btnLogout', false); $('whoami').textContent = ''; }
+  }
+  initLogin();
+})();
+
 
 /* ================= 2. 차수 선택 ================= */
 function renderSets(sets) {
   $('hello').textContent = `${S.name} 학생, 안녕하세요`;
-  $('whoami').textContent = `${S.name} · ${S.sid}`;
   const box = $('setList'); box.innerHTML = '';
   if (!sets.length) { box.innerHTML = '<p class="empty">지금 응시할 수 있는 모의고사가 없습니다.</p>'; }
   sets.forEach(s => {
@@ -339,7 +387,7 @@ let RESULTS = [];
 async function loadResults() {
   const box = $('resList');
   try {
-    RESULTS = (await apiGet({ action: 'myResults', sid: S.sid, code: S.code })).results;
+    RESULTS = (await apiGet({ action: 'myResults', session: S.session })).results;
     box.innerHTML = RESULTS.length ? '' : '<p class="empty">아직 공개된 결과가 없습니다.</p>';
     RESULTS.forEach((r, i) => {
       const b = document.createElement('button');
@@ -364,7 +412,7 @@ function openResult(i) {
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = '불러오는 중…';
       try {
-        const d = await apiGet({ action: 'myAudio', sid: S.sid, code: S.code, fileId: a.fileId });
+        const d = await apiGet({ action: 'myAudio', session: S.session, fileId: a.fileId });
         const bin = atob(d.data), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
         el.querySelector('[data-p]').innerHTML = `<audio controls autoplay src="${URL.createObjectURL(new Blob([u], { type: d.mime }))}"></audio>`;
         btn.classList.add('hidden');
@@ -380,7 +428,7 @@ function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp
 async function loadExam(setId) {
   msg($('setsMsg'), 'warn', '문항을 불러오는 중…');
   try {
-    const d = await apiGet({ action: 'exam', sid: S.sid, code: S.code, set: setId });
+    const d = await apiGet({ action: 'exam', session: S.session, set: setId });
     S.set = d.set; S.questions = d.questions;
     await prefetchAudio((i, n) => msg($('setsMsg'), 'warn', `질문 음성을 받는 중… (${i}/${n})`));
     $('setsMsg').className = 'msg hidden';
@@ -462,7 +510,7 @@ async function prefetchAudio(onProgress) {
     onProgress(++n, list.length);
     for (let a = 1; a <= 3; a++) {
       try {
-        const d = await apiGet({ action: 'qaudio', sid: S.sid, code: S.code, id: q.audioId });
+        const d = await apiGet({ action: 'qaudio', session: S.session, id: q.audioId });
         const bin = atob(d.data), u = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
         q.audioBuf = u.buffer; break;
@@ -488,7 +536,7 @@ function prefetchVideos() {
     q.videoPromise = chain = chain.then(async () => {
       for (let a = 1; a <= 3; a++) {
         try {
-          const d = await apiGet({ action: 'qaudio', sid: S.sid, code: S.code, id: q.videoFileId });
+          const d = await apiGet({ action: 'qaudio', session: S.session, id: q.videoFileId });
           const bin = atob(d.data), u = new Uint8Array(bin.length);
           for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
           return URL.createObjectURL(new Blob([u], { type: d.mime || 'video/mp4' }));
@@ -623,9 +671,9 @@ $('btnMic').onclick = async () => {
 
 $('btnStart').onclick = async () => {
 
-  S.attemptId = `${S.set.id}-${S.sid}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 5)}`;
+  S.attemptId = `${S.set.id}-${S.sid || S.email.split('@')[0]}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 5)}`;
   window.onbeforeunload = () => '시험이 진행 중입니다.';
-  apiPost({ action: 'start', sid: S.sid, code: S.code, setId: S.set.id, attemptId: S.attemptId, device }).catch(() => {});
+  apiPost({ action: 'start', session: S.session, setId: S.set.id, attemptId: S.attemptId, device }).catch(() => {});
   S.idx = 0; runExam();
 };
 
@@ -704,7 +752,7 @@ async function runExam() {
 
     enqueue({
       label: `P${q.part}-${q.order}`, blob: rec.blob, duration: rec.duration,
-      payload: { action: 'answer', sid: S.sid, code: S.code, setId: S.set.id, attemptId: S.attemptId,
+      payload: { action: 'answer', session: S.session, setId: S.set.id, attemptId: S.attemptId,
                  part: q.part, order: q.order, question: q.text, durationSec: rec.duration, peak: rec.peak }
     });
     await sleep(600);
@@ -732,7 +780,7 @@ async function finalize() {
   }
   if (!finalized || !failed.length) {
     finalized = true;
-    apiPost({ action: 'finish', sid: S.sid, code: S.code, attemptId: S.attemptId,
+    apiPost({ action: 'finish', session: S.session, attemptId: S.attemptId,
               count: Q.filter(i => i.status === '완료').length, complete: !failed.length }).catch(() => {});
   }
 }
@@ -740,7 +788,7 @@ $('btnRetryAll').onclick = () => { Q.forEach(i => { if (i.status === '실패') {
 $('btnSaveLocal').onclick = () => {
   Q.filter(i => i.status === '실패').forEach(i => {
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(i.blob); a.download = `${S.sid}_${S.attemptId}_${i.label}.wav`;
+    a.href = URL.createObjectURL(i.blob); a.download = `${S.attemptId}_${i.label}.wav`;
     document.body.appendChild(a); a.click(); a.remove();
   });
 };
