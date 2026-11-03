@@ -223,7 +223,7 @@
    <div id="tabGrowth" class="hidden">
     <div id="grList">
       <div class="card row between">
-        <div><h2>Speaking 성장 기록</h2><p class="hint" style="margin:4px 0 0">같은 학생의 여러 응시를 시간순으로 비교해요. 학생에게는 Band와 전사문 없이, 공개한 응시의 지표와 공개한 성장 분석만 보여요.</p></div>
+        <div><h2>성장 기록 (Speaking · Writing)</h2><p class="hint" style="margin:4px 0 0">같은 학생의 Speaking 응시와 Writing 제출을 시간순으로 비교해요. 학생에게는 Band·전사문 없이, 공개한 응시의 지표, 피드백 받은 글의 단어 수·작성 시간, 공개한 성장 분석만 보여요.</p></div>
         <div class="row"><input type="text" id="grQ" placeholder="이름·학번·이메일 검색" style="width:200px"><button class="plain" id="grReload">새로고침</button></div>
       </div>
       <div id="grRows" class="alist"></div>
@@ -858,7 +858,7 @@ function grRender() {
     const el = document.createElement('div'); el.className = 'card growth-row';
     const pc = s.growth === '공개' ? 'st-공개' : s.growth === '초안' ? 'st-검토' : 'st-미채점';
     el.innerHTML = `<div><b>${esc(s.name)}</b> <span class="hint">${esc(s.sid || '')} ${esc(s.email || '')}</span>
-        <div class="hint">응시 ${s.count}회 · 채점 ${s.graded}회 · 공개 ${s.published}회 · 최근 ${esc(String(s.last).slice(0, 10))}</div></div>
+        <div class="hint">Speaking 응시 ${s.count}회 · 채점 ${s.graded}회 · 공개 ${s.published}회 · Writing 제출 ${s.wCount || 0}건 · 피드백 ${s.wDone || 0}건 · 최근 ${esc(String(s.last).slice(0, 10))}</div></div>
       <div style="text-align:right"><span class="pill ${pc}">성장 분석 ${esc(s.growth)}</span></div>`;
     el.onclick = () => grOpen(s.key);
     $('grRows').appendChild(el);
@@ -869,15 +869,18 @@ async function grOpen(key) {
   catch (e) { toast(e.message, true); }
 }
 function grDetail(d) {
-  GR.cur = d; const st = d.student, atts = d.attempts, g = d.growth;
+  GR.cur = d; const st = d.student, atts = d.attempts, g = d.growth, ws = d.wsubs || [];
   vis('grList', false); const box = $('grDetail'); box.classList.remove('hidden'); window.scrollTo(0, 0);
   const analyzed = atts.filter(a => a.analyzed).length;
+  const wReady = ws.filter(w => w.done || num(w.bands.overall)).length;
+  const canAi = analyzed >= 2 || wReady >= 2;
   const lab = a => shortDate(a.date), tip = a => `${shortDate(a.date)} · ${a.setTitle}`;
+  const wlab = w => shortDate(w.date), wtip = w => `${shortDate(w.date)} · ${w.task} ${w.type}`;
   box.innerHTML = `
     <div class="row between" style="margin-bottom:12px"><button class="plain" data-back>← 학생 목록</button>
       ${g ? `<span class="pill ${g.published ? 'st-공개' : 'st-검토'}">성장 분석 ${g.published ? '공개 중' : '초안'}</span>` : ''}</div>
     <div class="card"><h2>${esc(st.name)} <span class="hint">${esc(st.sid || '')} ${esc(st.email || '')}</span></h2>
-      <div class="hint">응시 ${atts.length}회 · AI 분석 완료 ${analyzed}회</div>
+      <div class="hint">Speaking 응시 ${atts.length}회 · AI 분석 완료 ${analyzed}회 · Writing 제출 ${ws.length}건 · 첨삭 완료 ${wReady}건</div>
       <div class="gsec-title">Band 변화 <span class="who ref">교사 참고 · 학생에게 안 보임</span></div>
       <div class="charts" data-bands></div>
       <div class="gsec-title">말하기 지표 <span class="hint" style="font-weight:600">(학생에게는 공개한 응시만 보여요)</span></div>
@@ -889,11 +892,20 @@ function grDetail(d) {
         <th class="n">Part 2</th><th class="n">P1·3 평균</th><th class="n">속도</th><th class="n">머뭇거림</th></tr></thead><tbody data-rows></tbody></table></div>
       <p class="hint" style="margin:8px 0 0">줄을 누르면 그 응시의 채점 화면으로 이동해요.</p>
     </div>
+    <div class="card"><h2>Writing 기록</h2>
+      <div class="gsec-title">Writing Band 변화 <span class="who ref">교사 참고 · 학생에게 안 보임</span></div>
+      <div class="charts" data-wbands></div>
+      <div class="gsec-title">작성 지표 <span class="hint" style="font-weight:600">(학생에게는 피드백을 전송한 글만 보여요 · Task 1과 2는 기준이 달라 따로 그려요)</span></div>
+      <div class="charts" data-wmetrics></div>
+      <div class="tscroll" style="margin-top:12px"><table class="gtable"><thead><tr><th>작성날짜</th><th>과제</th><th>Task · 유형</th><th>피드백</th><th class="n">TA/TR</th><th class="n">CC</th><th class="n">LR</th><th class="n">GRA</th><th class="n">전체</th>
+        <th class="n">단어수</th><th class="n">작성 시간</th></tr></thead><tbody data-wrows></tbody></table></div>
+      <p class="hint" style="margin:8px 0 0">줄을 누르면 그 글의 첨삭 화면으로 이동해요. 작성 시간은 학생 화면의 타이머 기준이에요.</p>
+    </div>
     <div class="gd"><div class="gd-main">
       <div class="card ref-card"><div class="row between"><h2>📋 AI 성장 분석 · 교사 참고용</h2><span class="who ref">학생에게 안 보임</span></div>
-        <div class="row" style="margin-top:10px"><button data-ai ${analyzed < 2 ? 'disabled' : ''}>🤖 AI 성장 분석 ${g ? '다시 ' : ''}만들기</button>
+        <div class="row" style="margin-top:10px"><button data-ai ${canAi ? '' : 'disabled'}>🤖 AI 성장 분석 ${g ? '다시 ' : ''}만들기</button>
           ${g ? '<label class="switch"><input type="checkbox" data-ow> 학생용 분석도 새 초안으로 덮어쓰기</label>' : ''}</div>
-        <p class="hint" style="margin:8px 0 0">${analyzed < 2 ? '채점 탭에서 ‘AI 초안 만들기’를 마친 응시가 2회 이상 있어야 해요.' : `AI 분석이 끝난 최근 응시(최대 6회)의 전사·피드백·Band를 비교해요. 이름·학번은 보내지 않아요.`}</p>
+        <p class="hint" style="margin:8px 0 0">${canAi ? `Speaking은 AI 분석이 끝난 최근 응시(최대 6회), Writing은 첨삭이 끝난 최근 글(최대 6편)을 비교해요. 한쪽이 2건 미만이면 그쪽은 빼고 분석해요. 이름·학번은 보내지 않아요.` : 'Speaking 채점 탭에서 ‘AI 초안 만들기’를 마친 응시 2회 이상, 또는 Writing 첨삭(Band 입력·전송)을 마친 글 2편 이상이 있어야 해요.'}</p>
         ${g ? `<div class="hint" style="margin-top:10px">생성 ${esc(g.createdAt)} · 대상 ${esc(g.basedOn)}</div><div class="tbox" style="margin-top:6px">${esc(g.teacherText)}</div>` : ''}
       </div>
     </div><aside class="gd-side">
@@ -915,6 +927,18 @@ function grDetail(d) {
       <td><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></td>${cell(a.bands.fc)}${cell(a.bands.lr)}${cell(a.bands.gra)}${cell(a.bands.p)}${cell(a.bands.overall)}
       ${cell(a.metrics.p2Sec == null ? null : a.metrics.p2Sec + '초')}${cell(a.metrics.p13AvgSec == null ? null : a.metrics.p13AvgSec + '초')}${cell(a.metrics.wpm)}${cell(a.metrics.fillersPerMin)}</tr>`).join('');
   f('rows').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => { switchTab('grade'); openAttempt(tr.dataset.id); });
+  if (!atts.length) f('rows').innerHTML = '<tr><td colspan="12" class="hint">Speaking 응시 기록이 없어요.</td></tr>';
+  /* Writing */
+  [['전체', 'overall'], ['TA/TR 과제 달성·응답', 'ta'], ['CC 일관성·응집성', 'cc'], ['LR 어휘', 'lr'], ['GRA 문법', 'gra']].forEach(([t, k]) =>
+    f('wbands').appendChild(miniChart(t, ws.map(w => ({ label: wlab(w), tip: wtip(w), v: num(w.bands[k]) })), { min: 3, max: 9, digits: 1 })));
+  const isT1 = w => /1/.test(w.task), t1 = ws.filter(isT1), t2 = ws.filter(w => !isT1(w));
+  [['Task 1 단어 수 (최소 150)', t1, w => w.words || null, '', 0], ['Task 2 단어 수 (최소 250)', t2, w => w.words || null, '', 0],
+   ['Task 1 작성 시간 (권장 20분)', t1, w => w.totalSec ? w.totalSec / 60 : null, '분', 0], ['Task 2 작성 시간 (권장 40분)', t2, w => w.totalSec ? w.totalSec / 60 : null, '분', 0]]
+    .forEach(([t, list, val, u, dg]) => f('wmetrics').appendChild(miniChart(t, list.map(w => ({ label: wlab(w), tip: wtip(w), v: val(w) })), { unit: u, digits: dg, min: 0 })));
+  f('wrows').innerHTML = ws.length ? ws.slice().reverse().map(w => `<tr data-wid="${esc(w.id)}"><td>${esc(w.date)}</td><td>${esc(w.title || '자유 연습')}</td><td>${esc(w.task)} · ${esc(w.type)}</td>
+      <td><span class="pill ${w.done ? 'st-공개' : 'st-검토'}">${w.done ? '전송' : '미완료'}</span></td>${cell(w.bands.ta)}${cell(w.bands.cc)}${cell(w.bands.lr)}${cell(w.bands.gra)}${cell(w.bands.overall)}
+      ${cell(w.words)}${cell(w.totalSec ? wmmss(w.totalSec) : null)}</tr>`).join('') : '<tr><td colspan="11" class="hint">Writing 제출 기록이 없어요.</td></tr>';
+  f('wrows').querySelectorAll('tr[data-wid]').forEach(tr => { tr.style.cursor = 'pointer'; tr.onclick = () => { switchTab('wgrade'); wgOpen(tr.dataset.wid); }; });
   f('ai').onclick = () => busy(f('ai'), 'AI 분석 중… (30초~1분)', async () => {
     if (g) await apiPost({ action: 'tgrowthSave', key: st.key, studentText: f('stext').value, publish: g.published });   // 고친 내용 먼저 저장
     const r = await apiPost({ action: 'tgrowthAi', key: st.key, overwrite: f('ow') ? f('ow').checked : false });
@@ -1071,7 +1095,7 @@ function wgDetail(s) {
   const eng = s.annotated && s.annotated.trim() ? s.annotated : esc(s.english || '').replace(/\n/g, '<br>');
   box.innerHTML = `
     <div class="row between" style="margin-bottom:12px"><button class="plain" data-back>← 목록</button>
-      <span class="pill ${s.done ? 'st-공개' : 'st-검토'}">${s.done ? '전송 완료(학생 공개)' : '미완료'}</span></div>
+      <div class="row"><button class="ghost" data-growth>📈 이 학생 성장 기록</button><span class="pill ${s.done ? 'st-공개' : 'st-검토'}">${s.done ? '전송 완료(학생 공개)' : '미완료'}</span></div></div>
     <div class="gd"><div class="gd-main">
       <div class="card"><h2>${esc(s.name)} <span class="hint">${esc(s.cls || s.sid || '')} · ${esc(s.email)}</span></h2>
         <div class="hint">${esc(s.assignmentTitle || '자유 연습')} · ${esc(s.task)} · ${esc(s.type)} · 작성 ${esc(s.writingDate)} · 제출 ${esc(s.submittedAt)} · ${esc(s.words)} words
@@ -1109,6 +1133,7 @@ function wgDetail(s) {
     </aside></div>`;
   const q = n => box.querySelector(`[data-${n}]`);
   q('back').onclick = () => { wgShowList(); wgLoad().catch(() => {}); };
+  q('growth').onclick = () => { const key = String(s.email || '').trim().toLowerCase() || 'sid:' + String(s.sid || '').trim(); switchTab('growth'); grOpen(key); };
   const ed = $('wEditable');
   const wc = () => q('wc').textContent = `· ${countW(ed.innerText)} words`; wc();
   ed.addEventListener('input', () => { wc(); wgAutosave(); });

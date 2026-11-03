@@ -253,7 +253,7 @@
   <section id="vGrowth" class="hidden">
     <button class="secondary back" id="btnGrowthBack">← 돌아가기</button>
     <h1>내 성장 기록</h1>
-    <p class="sub">선생님이 결과를 공개한 시험을 시간순으로 비교해요.</p>
+    <p class="sub">선생님이 결과를 공개한 Speaking 시험과 피드백을 받은 Writing 글을 시간순으로 비교해요.</p>
     <div id="growthBody"><p class="empty">불러오는 중…</p></div>
   </section>
 
@@ -527,6 +527,10 @@ function renderSets(sets) {
   });
   show('vSets');
   loadResults();
+  if (location.hash === '#growth') {               // Writing 화면의 ‘내 성장 기록’ 버튼에서 넘어온 경우
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    openGrowth();
+  }
 }
 
 /* ================= 내 결과 (Band는 표시하지 않음) ================= */
@@ -660,13 +664,14 @@ async function openGrowth() {
   const box = $('growthBody'); box.innerHTML = '<p class="empty">불러오는 중…</p>';
   try {
     const d = await apiGet({ action: 'myGrowth', session: S.session });
-    const atts = d.attempts; box.innerHTML = '';
-    if (!atts.length) { box.innerHTML = '<div class="card"><p class="empty">아직 공개된 시험 결과가 없어요. 선생님이 결과를 공개하면 여기에서 변화를 볼 수 있어요.</p></div>'; return; }
+    const atts = d.attempts, ws = d.wsubs || []; box.innerHTML = '';
+    if (!atts.length && !ws.length) { box.innerHTML = '<div class="card"><p class="empty">아직 공개된 Speaking 결과나 피드백을 받은 Writing 글이 없어요. 선생님이 결과를 공개하면 여기에서 변화를 볼 수 있어요.</p></div>'; return; }
     if (d.growth && d.growth.studentText) {
       const c = document.createElement('div'); c.className = 'card summary';
       c.innerHTML = `<h2>선생님이 정리한 성장 분석</h2><p class="sub" style="margin:0">${escapeHtml(String(d.growth.publishedAt || '').slice(0, 10))} 공개</p>${growthHtml(d.growth.studentText)}`;
       box.appendChild(c);
     }
+    if (atts.length) {
     const cc = document.createElement('div'); cc.className = 'card';
     cc.innerHTML = `<h2>말하기 지표 변화</h2>${atts.length < 2 ? '<p class="sub">시험을 2회 이상 보면 변화가 선으로 이어져 보여요.</p>' : '<p class="sub">점을 누르거나 마우스를 올리면 시험 이름과 값을 볼 수 있어요.</p>'}<div class="charts"></div>`;
     const charts = cc.querySelector('.charts');
@@ -691,6 +696,29 @@ async function openGrowth() {
       tl.appendChild(b);
     });
     box.appendChild(tl);
+    }
+    if (ws.length) {                                 // Writing: 피드백 받은 글의 단어 수·작성 시간 (Band 없음)
+      const wc = document.createElement('div'); wc.className = 'card';
+      wc.innerHTML = `<h2>Writing 지표 변화</h2><p class="sub">선생님 피드백을 받은 글만 보여요. Task 1과 Task 2는 기준이 달라서 따로 그려요.</p><div class="charts"></div>`;
+      const wcharts = wc.querySelector('.charts');
+      const isT1 = w => /1/.test(w.task), wl = w => shortDate(w.date), wt = w => `${shortDate(w.date)} · ${w.task} ${w.type}`;
+      [['Task 1 단어 수', isT1, w => w.words || null, '', '최소 150단어를 넘기는 게 목표예요.'],
+       ['Task 2 단어 수', w => !isT1(w), w => w.words || null, '', '최소 250단어를 넘기는 게 목표예요.'],
+       ['Task 1 작성 시간', isT1, w => w.totalSec ? w.totalSec / 60 : null, '분', '실제 시험에서는 20분 안에 써야 해요.'],
+       ['Task 2 작성 시간', w => !isT1(w), w => w.totalSec ? w.totalSec / 60 : null, '분', '실제 시험에서는 40분 안에 써야 해요.']]
+        .forEach(([t, pick, val, u, why]) => { const list = ws.filter(pick); if (list.length) wcharts.appendChild(miniChart(t, list.map(w => ({ label: wl(w), tip: wt(w), v: val(w) })), { unit: u, digits: 0, min: 0, why })); });
+      box.appendChild(wc);
+      const wtl = document.createElement('div'); wtl.className = 'card timeline';
+      wtl.innerHTML = '<h2>Writing 기록</h2>';
+      ws.slice().reverse().forEach(w => {
+        const b = document.createElement('button');
+        b.style.borderLeftColor = 'var(--gold)';
+        b.innerHTML = `${escapeHtml(w.title || (w.task + ' · ' + w.type))}<small>${escapeHtml(w.date)} · ${escapeHtml(w.task)} ${escapeHtml(w.type)} · ${w.words} words${w.totalSec ? ` · ${Math.round(w.totalSec / 60)}분` : ''} · 첨삭 보기</small>`;
+        b.onclick = () => { location.href = 'writing.html#sub=' + encodeURIComponent(w.id); };
+        wtl.appendChild(b);
+      });
+      box.appendChild(wtl);
+    }
   } catch (e) { box.innerHTML = `<div class="card"><p class="empty">성장 기록을 불러오지 못했어요. ${e.server ? escapeHtml(e.message) : '인터넷 연결을 확인하세요.'}</p></div>`; }
 }
 function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }

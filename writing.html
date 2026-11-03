@@ -171,6 +171,7 @@
       <div class="card">
         <h2>내 글</h2>
         <div id="myList"><p class="empty">불러오는 중…</p></div>
+        <button class="gold" id="btnGrowth" style="margin-top:14px">📈 내 성장 기록 보기 (Speaking · Writing)</button>
       </div>
     </div>
     <div id="homeMsg" class="msg hidden"></div>
@@ -353,7 +354,13 @@ async function goHome() {
       ml.appendChild(el);
     });
   } catch (e) { msg($('homeMsg'), 'bad', e.message || '목록을 불러오지 못했습니다.'); }
+  const m = location.hash.match(/^#sub=(.+)$/);   // 성장 기록(exam.html)의 Writing 기록에서 넘어온 경우
+  if (m) {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    openDetail(decodeURIComponent(m[1]));
+  }
 }
+$('btnGrowth').onclick = () => { location.href = 'exam.html#growth'; };
 $('btnFree').onclick = () => startEntry('');
 $('btnDoneHome').onclick = goHome;
 $('btnDetailBack').onclick = goHome;
