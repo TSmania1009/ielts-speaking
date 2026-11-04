@@ -202,8 +202,13 @@
 </header>
 <main>
 
+  <!-- 0. 저장된 로그인 확인 중 (서버 응답을 기다리는 동안 로그인 화면이 보이지 않게) -->
+  <section id="vLoading">
+    <p class="empty" style="text-align:center;padding:72px 16px">불러오는 중…</p>
+  </section>
+
   <!-- 1. 로그인 -->
-  <section id="vLogin">
+  <section id="vLogin" class="hidden">
     <div class="login">
       <div class="hero">
         <img src="cnsa-logo.png" alt="CNSA">
@@ -403,7 +408,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 function show(view) {
-  ['vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone', 'vResult', 'vGrowth'].forEach(v => $(v).classList.toggle('hidden', v !== view));
+  ['vLoading', 'vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone', 'vResult', 'vGrowth'].forEach(v => $(v).classList.toggle('hidden', v !== view));
   window.scrollTo(0, 0);
 }
 function msg(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text; }
@@ -491,7 +496,17 @@ $('btnLogout').onclick = () => {
   let saved = null; try { saved = JSON.parse(sessionStorage.getItem(SKEY) || 'null'); } catch (_) {}
   if (saved && saved.session) {
     S.session = saved.session; applyUser(saved.user);
-    try { await enterWithSession(); return; } catch (e) { clearSession(); vis('btnLogout', false); $('whoami').textContent = ''; }
+    if (location.hash === '#growth') {             // Writing 화면의 ‘내 성장 기록’ 버튼: 차수 목록을 기다리지 않고 바로 열기
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+      S.keepView = true; openGrowth();
+    }
+    try { await enterWithSession(); return; }
+    catch (e) {
+      S.keepView = false;
+      // 로그인이 실제로 만료된 경우에만 로그아웃 (잠깐 연결이 안 되거나 PC 서버가 꺼진 경우에는 로그인 유지)
+      if (!(e.server && /로그인이 만료/.test(e.message))) { show('vSets'); $('setList').innerHTML = `<p class="empty">${escapeHtml(e.message || '서버에 연결할 수 없어요.')} 잠시 후 새로고침해 주세요.</p>`; return; }
+      clearSession(); vis('btnLogout', false); $('whoami').textContent = '';
+    }
   }
   initLogin();
 })();
@@ -508,12 +523,12 @@ function renderSets(sets) {
     b.onclick = () => loadExam(s.id);
     box.appendChild(b);
   });
-  show('vSets');
   loadResults();
-  if (location.hash === '#growth') {               // Writing 화면의 ‘내 성장 기록’ 버튼에서 넘어온 경우
+  if (location.hash === '#growth') {               // 로그인한 뒤 성장 기록으로 넘어가는 경우
     try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
     openGrowth();
-  }
+  } else if (!S.keepView) show('vSets');          // 이미 성장 기록을 열어 둔 경우에는 화면을 바꾸지 않음
+  S.keepView = false;
 }
 
 /* ================= 내 결과 (Band는 표시하지 않음) ================= */

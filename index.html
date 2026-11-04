@@ -104,7 +104,13 @@ async function initLogin() {
 $('btnLogout').onclick = () => { try { sessionStorage.removeItem(SKEY); google.accounts.id.disableAutoSelect(); } catch (_) {} location.reload(); };
 (async () => {
   let saved = null; try { saved = JSON.parse(sessionStorage.getItem(SKEY) || 'null'); } catch (_) {}
-  if (saved && saved.session) { try { await apiGet({ action: 'me', session: saved.session }); return entered(saved.user); } catch (_) { try { sessionStorage.removeItem(SKEY); } catch (__) {} } }
+  if (saved && saved.session) {
+    // 저장된 로그인으로 바로 화면을 보여 주고, 세션 확인은 뒤에서 합니다 (실제로 만료된 경우에만 로그아웃)
+    entered(saved.user);
+    try { await apiGet({ action: 'me', session: saved.session }); }
+    catch (e) { if (e.server && /로그인이 만료/.test(e.message)) { try { sessionStorage.removeItem(SKEY); } catch (_) {} location.reload(); } }
+    return;
+  }
   initLogin();
 })();
 </script>
