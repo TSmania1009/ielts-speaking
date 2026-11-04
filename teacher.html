@@ -57,6 +57,23 @@
   .tab { background: transparent; color:#d9d8f5; padding: 8px 18px; }
   .tab:hover { background: rgba(255,255,255,.12); }
   .tab.on { background: var(--gold); color: var(--navy); }
+  /* 보기 전환 (목록 · 학생별 · 차수별) + 묶음 */
+  .seg { display:inline-flex; background: var(--navy-soft); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button { background: transparent; color: var(--navy); padding: 6px 12px; font-size: 13px; }
+  .seg button:hover { background: #dddcf6; }
+  .seg button.on { background: var(--navy); color: #fff; }
+  .seg button .n { display:inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: rgba(0,0,0,.08); font-size: 11.5px; }
+  .seg button.on .n { background: rgba(255,255,255,.22); }
+  .stseg { margin-top: 10px; flex-wrap: wrap; }
+  .grp { background: var(--card); border:1px solid var(--line); border-radius: 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .grp > summary { list-style: none; cursor: pointer; display:flex; align-items:center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; }
+  .grp > summary::-webkit-details-marker { display:none; }
+  .grp > summary::before { content:'▸'; color: var(--muted); transition: transform .15s; }
+  .grp[open] > summary::before { transform: rotate(90deg); }
+  .grp > summary b { color: var(--navy); font-size: 15.5px; }
+  .grp .gcnt { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+  .grp .gbody { padding: 0 14px 14px; }
+  .st-todo { background: var(--gold-soft); color: var(--gold-ink); }
   .nbadge { display:inline-block; min-width:18px; padding:0 6px; margin-left:6px; border-radius:9px; background:#c62828; color:#fff; font-size:11.5px; line-height:18px; text-align:center; font-weight:700; }
 
   /* 출제: Part 3열 */
@@ -88,6 +105,8 @@
   .st-검토 { background:#fff4e5; color: var(--warn); } .st-공개 { background:#e6f5ee; color: var(--ok); }
   .gd { display:grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 18px; align-items: start; }
   .gd-side { position: sticky; top: 86px; max-height: calc(100vh - 100px); overflow:auto; padding-bottom: 4px; }
+  /* Writing 첨삭 화면: 왼쪽(답안) 60 : 오른쪽(Band·코멘트) 40 */
+  .gd.wg { grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr); }
   .gd-main .alist2 { display:grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 14px; }
   .gd-main .alist2 .card { margin: 0; }
   .bands { display:grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
@@ -117,7 +136,7 @@
   .actions { display:flex; gap: 8px; flex-wrap: wrap; } .actions button { flex: 1; justify-content:center; padding: 11px 14px; }
   .sticky { display:none; }
   @media (max-width: 1200px) { .parts { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 980px) { .gd { grid-template-columns: 1fr; } .gd-side { position: static; max-height: none; } }
+  @media (max-width: 980px) { .gd, .gd.wg { grid-template-columns: 1fr; } .gd-side { position: static; max-height: none; } }
   @media (max-width: 760px) { .parts { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } .bands { grid-template-columns: repeat(3, 1fr); } }
   /* ===== Writing (교사) ===== */
   .wa-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
@@ -154,7 +173,7 @@
   .ai-sug .r { font-size: 13px; color:#4a4e68; margin-top: 4px; }
   .crow { display:grid; grid-template-columns: 18px 1fr auto; gap: 6px; align-items:start; margin-bottom: 6px; }
   .crow .h { cursor: grab; color: var(--muted); padding-top: 9px; user-select: none; }
-  .crow textarea { font-size: 14px; padding: 8px 10px; min-height: 40px; }
+  .crow textarea { font-size: 14px; padding: 8px 10px; min-height: 40px; overflow: hidden; }   /* 높이는 내용에 맞춰 자동 (growT) */
   .crow .acts { display:flex; flex-direction:column; gap: 4px; } .crow .acts button { padding: 4px 8px; font-size: 13px; background:#fff; color: var(--ink); border:1px solid var(--line); }
   .crow.over textarea { border-color: var(--gold); }
   .chips { display:flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -214,9 +233,12 @@
     <div id="gList">
       <div class="card row between">
         <div class="row" style="flex:1; min-width:240px"><select id="gSet" style="flex:1"></select><select id="gStatus" style="width:auto">
-          <option value="">전체 상태</option><option>미채점</option><option>AI 초안</option><option>검토 중</option><option>공개</option></select></div>
-        <button class="plain" id="gReload">새로고침</button>
+          <option value="">전체 상태</option><option>미채점</option><option>AI 초안</option><option>검토 중</option><option>공개</option></select>
+          <input type="text" id="gQ" placeholder="이름·학번·이메일 검색" style="width:180px"></div>
+        <div class="row"><div class="seg" id="gView"><button data-v="list">목록</button><button data-v="student">학생별</button><button data-v="set">차수별</button></div>
+          <button class="plain" id="gReload">새로고침</button></div>
       </div>
+      <div class="hint" id="gCount" style="margin: 0 0 10px"></div>
       <div id="gRows" class="alist"></div>
     </div>
     <div id="gDetail" class="hidden"></div>
@@ -244,14 +266,17 @@
       <div class="card row between">
         <div class="row" style="flex:1; min-width:260px">
           <select id="wgAssign" style="flex:1"></select>
-          <select id="wgStatus" style="width:auto"><option value="">전체</option><option value="pending">미완료</option><option value="done">완료</option></select>
           <input type="text" id="wgQ" placeholder="이름·이메일 검색" style="width:180px">
         </div>
-        <div class="row"><label class="switch"><input type="checkbox" id="wgAll"> 모두 선택</label><button class="plain" id="wgReload">새로고침</button></div>
+        <div class="row"><div class="seg" id="wgView"><button data-v="list">목록</button><button data-v="student">학생별</button><button data-v="assign">과제별</button></div>
+          <label class="switch"><input type="checkbox" id="wgAll"> 모두 선택</label><button class="plain" id="wgReload">새로고침</button></div>
+        <div class="seg stseg" id="wgStatus" style="flex-basis:100%">
+          <button data-v="all">전체 제출<span class="n" data-n="all"></span></button><button data-v="pending">미완료<span class="n" data-n="pending"></span></button><button data-v="drafted">첨삭 중<span class="n" data-n="drafted"></span></button><button data-v="done">완료<span class="n" data-n="done"></span></button><button data-v="hidden" title="목록에서 숨긴 제출물 (학생 화면에는 그대로 보여요)">🙈 숨김<span class="n" data-n="hidden"></span></button>
+        </div>
       </div>
       <div class="hint" id="wgCount" style="margin: 0 0 10px"></div>
       <div id="wgRows" class="wcards"></div>
-      <div class="delbar hidden" id="wgDelBar"><span id="wgDelCount"></span><button class="danger" id="wgDel">선택 삭제</button></div>
+      <div class="delbar hidden" id="wgDelBar"><span id="wgDelCount"></span><div class="row"><button class="ghost" id="wgHide">🙈 목록에서 숨기기</button><button class="danger" id="wgDel">완전히 삭제</button></div></div>
     </div>
     <div id="wgDetail" class="hidden"></div>
    </div>
@@ -317,7 +342,7 @@ async function refreshBadges() {
   if (!KEY) return;
   try {
     const [w, a] = await Promise.all([apiGet({ action: 'wtSubs', session: KEY }), apiGet({ action: 'tattempts', session: KEY })]);
-    setBadge('wgrade', w.subs.filter(s => !s.done && !s.drafted).length);
+    setBadge('wgrade', w.subs.filter(s => !s.hidden && !s.done && !s.drafted).length);
     setBadge('grade', a.attempts.filter(x => x.grade === '미채점').length);
   } catch (_) {}
 }
@@ -652,24 +677,82 @@ function switchTab(t) {
 }
 function fillSetFilter() {
   const sel = $('gSet'), cur = sel.value; sel.innerHTML = '<option value="">전체 차수</option>';
-  SETS.forEach(s => sel.add(new Option(`${s.id} · ${s.title}`, s.id))); sel.value = cur;
+  SETS.forEach(s => sel.add(new Option(`${s.id} · ${s.title}`, s.id))); sel.value = cur || getView('ielts_gSet', '');
+  if (sel.selectedIndex < 0) sel.value = '';
 }
-$('gSet').onchange = renderAttempts; $('gStatus').onchange = renderAttempts;
+$('gStatus').value = getView('ielts_gStatus', ''); if ($('gStatus').selectedIndex < 0) $('gStatus').value = '';
+$('gSet').onchange = () => { setView('ielts_gSet', $('gSet').value); renderAttempts(); };
+$('gStatus').onchange = () => { setView('ielts_gStatus', $('gStatus').value); renderAttempts(); };
+$('gQ').oninput = renderAttempts;
 $('gReload').onclick = () => busy($('gReload'), '불러오는 중…', loadAttempts);
 async function loadAttempts() { GA = (await apiGet({ action: 'tattempts', session: KEY })).attempts; renderAttempts(); }
 const pillCls = g => 'pill ' + (g === '미채점' ? 'st-미채점' : g === 'AI 초안' ? 'st-ai' : g === '검토 중' ? 'st-검토' : 'st-공개');
-function renderAttempts() {
-  const set = $('gSet').value, st = $('gStatus').value;
-  const list = GA.filter(a => (!set || a.setId === set) && (!st || a.grade === st));
-  $('gRows').innerHTML = list.length ? '' : '<div class="card sub">응시 기록이 없습니다.</div>';
-  list.forEach(a => {
-    const el = document.createElement('div'); el.className = 'card arow';
-    el.innerHTML = `<div><b>${esc(a.name)}</b> <span class="hint">${esc(a.sid || '')} ${esc(a.email || '')}</span><div class="hint">${esc(a.setTitle)} · ${esc(a.start)} · 답변 ${a.answers}개${a.status && a.status !== '완료' ? ' · ' + esc(a.status) : ''}</div></div>
-      <div style="text-align:right"><span class="${pillCls(a.grade)}">${esc(a.grade)}</span>${a.band ? `<div class="hint" style="margin-top:4px">Band ${esc(a.band)}</div>` : ''}</div>`;
-    el.onclick = () => openAttempt(a.attemptId);
-    $('gRows').appendChild(el);
+
+/* ---------- 묶어 보기 (목록 · 학생별 · 차수별/과제별) — 고른 보기와 접힘 상태는 이 기기에 기억 ---------- */
+let GROUP_OPEN = {}; try { GROUP_OPEN = JSON.parse(localStorage.getItem('ielts_groupOpen') || '{}') || {}; } catch (_) {}
+function getView(k, def) { try { return localStorage.getItem(k) || def; } catch (_) { return def; } }
+function setView(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
+function initSeg(id, key, def, onChange) {
+  const seg = $(id), paint = v => seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  paint(getView(key, def));
+  seg.querySelectorAll('button').forEach(b => b.onclick = () => { setView(key, b.dataset.v); paint(b.dataset.v); onChange(); });
+}
+const studentKeyOf = x => String(x.email || '').trim().toLowerCase() || 'sid:' + String(x.sid || '').trim();
+const byName = (a, b) => String(a || '').localeCompare(String(b || ''), 'ko');
+/* groups: [{ key, title, sub, counts:[{text, cls}], pending, items:[element] }] — 처리할 것이 남은 묶음은 처음에 펼쳐 둠 */
+function renderGroups(box, groups, gridCls, ns) {
+  groups.forEach(g => {
+    const d = document.createElement('details'); d.className = 'grp';
+    const k = ns + ':' + g.key;
+    d.open = k in GROUP_OPEN ? GROUP_OPEN[k] : g.pending;
+    d.innerHTML = `<summary><b>${esc(g.title)}</b>${g.sub ? `<span class="hint">${esc(g.sub)}</span>` : ''}<span class="gcnt">${g.counts.map(c => `<span class="pill ${c.cls || 'st-미채점'}">${esc(c.text)}</span>`).join('')}</span></summary><div class="gbody"><div class="${gridCls}"></div></div>`;
+    d.ontoggle = () => { GROUP_OPEN[k] = d.open; try { localStorage.setItem('ielts_groupOpen', JSON.stringify(GROUP_OPEN)); } catch (_) {} };
+    const grid = d.querySelector('.gbody > div');
+    g.items.forEach(el => grid.appendChild(el));
+    box.appendChild(d);
   });
 }
+
+/* Speaking 응시 한 줄 — 학생별 묶음 안에서는 이름 대신 차수를 크게 */
+function gRowEl(a, view) {
+  const el = document.createElement('div'); el.className = 'card arow';
+  const head = view === 'student' ? `<b>${esc(a.setTitle)}</b>` : `<b>${esc(a.name)}</b> <span class="hint">${esc(a.sid || '')} ${esc(a.email || '')}</span>`;
+  const info = view === 'student' ? `${esc(a.start)}` : view === 'set' ? `${esc(a.start)}` : `${esc(a.setTitle)} · ${esc(a.start)}`;
+  el.innerHTML = `<div>${head}<div class="hint">${info} · 답변 ${a.answers}개${a.status && a.status !== '완료' ? ' · ' + esc(a.status) : ''}</div></div>
+    <div style="text-align:right"><span class="${pillCls(a.grade)}">${esc(a.grade)}</span>${a.band ? `<div class="hint" style="margin-top:4px">Band ${esc(a.band)}</div>` : ''}</div>`;
+  el.onclick = () => openAttempt(a.attemptId);
+  return el;
+}
+function renderAttempts() {
+  const set = $('gSet').value, st = $('gStatus').value, q = $('gQ').value.trim().toLowerCase();
+  const list = GA.filter(a => (!set || a.setId === set) && (!st || a.grade === st) &&
+    (!q || `${a.name} ${a.sid} ${a.email}`.toLowerCase().includes(q)));
+  const view = getView('ielts_gView', 'list'), box = $('gRows');
+  $('gCount').textContent = `전체 ${GA.length}건 · 미채점 ${GA.filter(a => a.grade === '미채점').length}건 · 표시 ${list.length}건`;
+  box.innerHTML = ''; box.className = view === 'list' || !list.length ? 'alist' : '';
+  if (!list.length) { box.innerHTML = '<div class="card sub">응시 기록이 없습니다.</div>'; return; }
+  if (view === 'list') { list.forEach(a => box.appendChild(gRowEl(a, 'list'))); return; }
+  const setIdx = id => { const i = SETS.findIndex(s => s.id === id); return i < 0 ? 999 : i; };
+  const by = {};
+  list.forEach(a => { const k = view === 'student' ? studentKeyOf(a) : a.setId; (by[k] = by[k] || []).push(a); });
+  const groups = Object.keys(by).map(k => {
+    const items = by[k], f = items[0];
+    const n = g => items.filter(a => a.grade === g).length;
+    const todo = n('미채점'), mid = n('AI 초안') + n('검토 중'), pub = n('공개');
+    items.sort(view === 'student'
+      ? (x, y) => setIdx(x.setId) - setIdx(y.setId) || String(x.start).localeCompare(String(y.start))   // 학생별: 차수 순서대로
+      : (x, y) => byName(x.name, y.name) || String(x.start).localeCompare(String(y.start)));         // 차수별: 이름 순
+    return {
+      key: k, order: view === 'student' ? (f.name || f.email) : setIdx(f.setId),
+      title: view === 'student' ? (f.name || f.email) : f.setTitle,
+      sub: view === 'student' ? [f.sid, f.email].filter(Boolean).join(' · ') : f.setId,
+      counts: [{ text: `응시 ${items.length}` }, todo && { text: `미채점 ${todo}`, cls: 'st-todo' }, mid && { text: `검토 ${mid}`, cls: 'st-ai' }, pub && { text: `공개 ${pub}`, cls: 'st-공개' }].filter(Boolean),
+      pending: todo > 0, items: items.map(a => gRowEl(a, view))
+    };
+  }).sort((x, y) => (view === 'student' ? byName(x.order, y.order) : x.order - y.order));
+  renderGroups(box, groups, 'alist', 'g' + view);
+}
+initSeg('gView', 'ielts_gView', 'list', renderAttempts);
 function showList() { $('gList').classList.remove('hidden'); $('gDetail').classList.add('hidden'); }
 async function openAttempt(id) {
   try { const d = await apiGet({ action: 'tattempt', session: KEY, id }); renderDetail(d); }
@@ -1059,44 +1142,92 @@ document.addEventListener('paste', e => {   // 캡처 이미지 붙여넣기 →
 async function wgLoad() {
   const [s, a] = await Promise.all([apiGet({ action: 'wtSubs', session: KEY }), apiGet({ action: 'wtAssignments', session: KEY })]);
   WT.subs = s.subs; WT.assignments = a.assignments; WT.taskTypes = a.taskTypes;
-  setBadge('wgrade', WT.subs.filter(x => !x.done && !x.drafted).length);
-  const sel = $('wgAssign'), cur = sel.value;
+  setBadge('wgrade', WT.subs.filter(x => !x.hidden && !x.done && !x.drafted).length);
+  const sel = $('wgAssign'), cur = sel.value || getView('ielts_wgAssign', '');
   sel.innerHTML = '<option value="">전체 과제·자유 연습</option><option value="__free">자유 연습만</option>' + WT.assignments.map(x => `<option value="${esc(x.id)}">${esc(x.id)} · ${esc(x.title)}</option>`).join('');
-  sel.value = cur; wgRender();
+  sel.value = cur; if (sel.selectedIndex < 0) sel.value = '';
+  wgRender();
 }
-['wgAssign', 'wgStatus'].forEach(id => $(id).onchange = wgRender); $('wgQ').oninput = wgRender;
+$('wgAssign').onchange = () => { setView('ielts_wgAssign', $('wgAssign').value); wgRender(); };
+$('wgQ').oninput = wgRender;
+/* 상태: 전체 제출 · 미완료(첨삭 전) · 첨삭 중 · 완료 · 숨김 — 고른 것은 이 기기에 기억 */
+const WG_ST = { all: s => !s.hidden, pending: s => !s.hidden && !s.done && !s.drafted, drafted: s => !s.hidden && !s.done && s.drafted, done: s => !s.hidden && s.done, hidden: s => s.hidden };
+const wgStatus = () => { const v = getView('ielts_wgStatus', 'all'); return WG_ST[v] ? v : 'all'; };
+initSeg('wgStatus', 'ielts_wgStatus', 'all', wgRender);
+async function wgSetHidden(ids, hide) {
+  await apiPost({ action: 'wtHide', ids, hide });
+  WT.subs.forEach(s => { if (ids.includes(s.id)) s.hidden = hide; });
+  ids.forEach(id => WT.sel.delete(id)); wgRender(); refreshBadges();
+  toast(hide ? `${ids.length}건을 목록에서 숨겼어요. ‘🙈 숨김’에서 다시 보이게 할 수 있어요.` : `${ids.length}건을 다시 목록에 보이게 했어요.`);
+}
 $('wgReload').onclick = () => busy($('wgReload'), '불러오는 중…', wgLoad);
 function wgVisible() {
-  const a = $('wgAssign').value, st = $('wgStatus').value, q = $('wgQ').value.trim().toLowerCase();
-  return WT.subs.filter(s => (!a || (a === '__free' ? !s.assignmentId : s.assignmentId === a)) && (!st || (st === 'done') === s.done) &&
+  const a = $('wgAssign').value, st = WG_ST[wgStatus()], q = $('wgQ').value.trim().toLowerCase();
+  return WT.subs.filter(s => (!a || (a === '__free' ? !s.assignmentId : s.assignmentId === a)) && st(s) &&
     (!q || (s.name + ' ' + s.email + ' ' + s.cls + ' ' + s.sid).toLowerCase().includes(q)));
+}
+/* Writing 제출물 한 장 — 학생별 묶음 안에서는 이름 대신 과제를, 과제별 묶음 안에서는 과제 대신 이름을 크게 */
+function wgRowEl(s, view) {
+  const el = document.createElement('div'); el.className = 'card wsub' + (s.done ? '' : ' pending');
+  const title = s.assignmentTitle || '자유 연습';
+  const head = view === 'student' ? `<b>${esc(title)}</b>` : `<b>${esc(s.name)}</b> <span class="hint">${esc(s.cls || s.sid || '')} · ${esc(s.email)}</span>`;
+  const info = view === 'student' ? `${esc(s.writingDate)} · ${esc(s.task)} · ${esc(s.type)}`
+    : view === 'assign' ? `${esc(s.writingDate)}${s.assignmentId ? '' : ' · ' + esc(s.task) + ' · ' + esc(s.type)}`
+    : `${esc(s.writingDate)} · ${esc(title)} · ${esc(s.task)} · ${esc(s.type)}`;
+  el.innerHTML = `<input type="checkbox" ${WT.sel.has(s.id) ? 'checked' : ''}>
+    <div>${head}
+      <div class="hint">${info} · ${esc(s.words)} words</div>
+      <span class="tgl ${s.done ? 'on' : ''}" title="완료/미완료 상태만 바꿔요"><span class="sw"></span>${s.done ? '완료(학생 공개)' : (s.drafted ? '첨삭 중' : '미완료')}</span></div>
+    <div style="text-align:right">${s.band ? `<span class="pill st-ai">Band ${esc(s.band)}</span>` : ''}</div>`;
+  el.querySelector('input').onclick = e => { e.stopPropagation(); e.target.checked ? WT.sel.add(s.id) : WT.sel.delete(s.id); wgDelBar(); };
+  el.querySelector('.tgl').onclick = async e => {
+    e.stopPropagation();
+    try { const r = await apiPost({ action: 'wtToggle', id: s.id }); s.done = r.done; wgRender(); } catch (err) { toast(err.message, true); }
+  };
+  el.onclick = () => wgOpen(s.id);
+  return el;
 }
 function wgRender() {
   const list = wgVisible(); const ids = new Set(list.map(s => s.id));
   [...WT.sel].forEach(id => { if (!ids.has(id)) WT.sel.delete(id); });
-  $('wgCount').textContent = `전체 ${WT.subs.length}건 · 미완료 ${WT.subs.filter(s => !s.done).length}건 · 표시 ${list.length}건`;
-  const box = $('wgRows'); box.innerHTML = list.length ? '' : '<div class="card hint">해당하는 제출물이 없어요.</div>';
-  list.forEach(s => {
-    const el = document.createElement('div'); el.className = 'card wsub' + (s.done ? '' : ' pending');
-    el.innerHTML = `<input type="checkbox" ${WT.sel.has(s.id) ? 'checked' : ''}>
-      <div><b>${esc(s.name)}</b> <span class="hint">${esc(s.cls || s.sid || '')} · ${esc(s.email)}</span>
-        <div class="hint">${esc(s.writingDate)} · ${esc(s.assignmentTitle || '자유 연습')} · ${esc(s.task)} · ${esc(s.type)} · ${esc(s.words)} words</div>
-        <span class="tgl ${s.done ? 'on' : ''}" title="메일 없이 완료/미완료 상태만 바꿔요"><span class="sw"></span>${s.done ? '완료(학생 공개)' : (s.drafted ? '첨삭 중' : '미완료')}</span></div>
-      <div style="text-align:right">${s.band ? `<span class="pill st-ai">Band ${esc(s.band)}</span>` : ''}</div>`;
-    el.querySelector('input').onclick = e => { e.stopPropagation(); e.target.checked ? WT.sel.add(s.id) : WT.sel.delete(s.id); wgDelBar(); };
-    el.querySelector('.tgl').onclick = async e => {
-      e.stopPropagation();
-      try { const r = await apiPost({ action: 'wtToggle', id: s.id }); s.done = r.done; wgRender(); } catch (err) { toast(err.message, true); }
-    };
-    el.onclick = () => wgOpen(s.id);
-    box.appendChild(el);
-  });
+  const fa = $('wgAssign').value, fq = $('wgQ').value.trim().toLowerCase();
+  const inScope = WT.subs.filter(s => (!fa || (fa === '__free' ? !s.assignmentId : s.assignmentId === fa)) && (!fq || (s.name + ' ' + s.email + ' ' + s.cls + ' ' + s.sid).toLowerCase().includes(fq)));
+  Object.keys(WG_ST).forEach(k => { const n = $('wgStatus').querySelector(`[data-n="${k}"]`); if (n) n.textContent = inScope.filter(WG_ST[k]).length; });
+  const hiddenN = WT.subs.filter(s => s.hidden).length;
+  $('wgCount').textContent = `전체 ${WT.subs.length - hiddenN}건 · 완료 전 ${WT.subs.filter(s => !s.hidden && !s.done).length}건${hiddenN ? ` · 숨김 ${hiddenN}건` : ''} · 표시 ${list.length}건`;
+  $('wgHide').textContent = wgStatus() === 'hidden' ? '👁 다시 보이기' : '🙈 목록에서 숨기기';
+  const view = getView('ielts_wgView', 'list'), box = $('wgRows');
+  box.innerHTML = ''; box.className = view === 'list' || !list.length ? 'wcards' : '';
+  if (!list.length) box.innerHTML = `<div class="card hint">${wgStatus() === 'hidden' ? '숨긴 제출물이 없어요.' : '해당하는 제출물이 없어요.'}</div>`;
+  else if (view === 'list') list.forEach(s => box.appendChild(wgRowEl(s, 'list')));
+  else {
+    const aIdx = id => { if (!id) return 9999; const i = WT.assignments.findIndex(x => x.id === id); return i < 0 ? 9998 : i; };   // 과제 목록 순서, 자유 연습은 맨 뒤
+    const by = {};
+    list.forEach(s => { const k = view === 'student' ? studentKeyOf(s) : (s.assignmentId || '__free'); (by[k] = by[k] || []).push(s); });
+    const groups = Object.keys(by).map(k => {
+      const items = by[k], f = items[0];
+      const todo = items.filter(s => !s.done && !s.drafted).length, mid = items.filter(s => !s.done && s.drafted).length, done = items.filter(s => s.done).length;
+      items.sort(view === 'student'
+        ? (x, y) => aIdx(x.assignmentId) - aIdx(y.assignmentId) || String(y.writingDate + y.submittedAt).localeCompare(String(x.writingDate + x.submittedAt))   // 학생별: 과제 순서, 같은 과제는 최근 글 먼저
+        : (x, y) => byName(x.name, y.name) || String(y.writingDate + y.submittedAt).localeCompare(String(x.writingDate + x.submittedAt)));                     // 과제별: 이름 순
+      return {
+        key: k, order: view === 'student' ? (f.name || f.email) : aIdx(f.assignmentId),
+        title: view === 'student' ? (f.name || f.email) : (f.assignmentId ? `${f.assignmentId} · ${f.assignmentTitle || ''}` : '자유 연습'),
+        sub: view === 'student' ? [f.cls || f.sid, f.email].filter(Boolean).join(' · ') : (f.assignmentId ? `${f.task} · ${f.type}` : '과제 없이 쓴 글'),
+        counts: [{ text: `제출 ${items.length}` }, todo && { text: `미완료 ${todo}`, cls: 'st-todo' }, mid && { text: `첨삭 중 ${mid}`, cls: 'st-ai' }, done && { text: `완료 ${done}`, cls: 'st-공개' }].filter(Boolean),
+        pending: todo + mid > 0, items: items.map(s => wgRowEl(s, view))
+      };
+    }).sort((x, y) => (view === 'student' ? byName(x.order, y.order) : x.order - y.order));
+    renderGroups(box, groups, 'wcards', 'w' + view);
+  }
   $('wgAll').checked = list.length > 0 && list.every(s => WT.sel.has(s.id));
   wgDelBar();
 }
+initSeg('wgView', 'ielts_wgView', 'list', wgRender);
 $('wgAll').onchange = e => { wgVisible().forEach(s => e.target.checked ? WT.sel.add(s.id) : WT.sel.delete(s.id)); wgRender(); };
 function wgDelBar() { vis('wgDelBar', WT.sel.size > 0); $('wgDelCount').textContent = `${WT.sel.size}건 선택됨`; }
-$('wgDel').onclick = confirmTwice($('wgDel'), '정말 삭제? (되돌릴 수 없음)', () => busy($('wgDel'), '삭제 중…', async () => {
+$('wgHide').onclick = async () => { await busy($('wgHide'), '바꾸는 중…', () => wgSetHidden([...WT.sel], wgStatus() !== 'hidden')); wgRender(); };
+$('wgDel').onclick = confirmTwice($('wgDel'), '학생 기록까지 영구 삭제? 한 번 더', () => busy($('wgDel'), '삭제 중…', async () => {
   await apiPost({ action: 'wtDelete', ids: [...WT.sel] }); WT.sel.clear(); toast('삭제했어요.'); await wgLoad();
 }));
 function wgShowList() { vis('wgList', true); vis('wgDetail', false); WT.pasteTarget = null; }
@@ -1112,8 +1243,8 @@ function wgDetail(s) {
   const eng = s.annotated && s.annotated.trim() ? s.annotated : esc(s.english || '').replace(/\n/g, '<br>');
   box.innerHTML = `
     <div class="row between" style="margin-bottom:12px"><button class="plain" data-back>← 목록</button>
-      <div class="row"><button class="ghost" data-growth>📈 이 학생 성장 기록</button><span class="pill ${s.done ? 'st-공개' : 'st-검토'}">${s.done ? '전송 완료(학생 공개)' : '미완료'}</span></div></div>
-    <div class="gd"><div class="gd-main">
+      <div class="row"><button class="plain" data-hide></button><button class="ghost" data-growth>📈 이 학생 성장 기록</button><span class="pill ${s.done ? 'st-공개' : 'st-검토'}">${s.done ? '전송 완료(학생 공개)' : '미완료'}</span></div></div>
+    <div class="gd wg"><div class="gd-main">
       <div class="card"><h2>${esc(s.name)} <span class="hint">${esc(s.cls || s.sid || '')} · ${esc(s.email)}</span></h2>
         <div class="hint">${esc(s.assignmentTitle || '자유 연습')} · ${esc(s.task)} · ${esc(s.type)} · 작성 ${esc(s.writingDate)} · 제출 ${esc(s.submittedAt)} · ${esc(s.words)} words
         ${Number(s.totalSeconds) ? ` · ⏱ 개요 ${wmmss(s.outlineSeconds)} · English ${wmmss(s.englishSeconds)} · 총 ${wmmss(s.totalSeconds)}` : ''}</div></div>
@@ -1149,6 +1280,10 @@ function wgDetail(s) {
     </aside></div>`;
   const q = n => box.querySelector(`[data-${n}]`);
   q('back').onclick = () => { wgShowList(); wgLoad().catch(() => {}); };
+  const isHidden = () => !!(WT.subs.find(x => x.id === s.id) || {}).hidden;
+  const paintHide = () => { q('hide').textContent = isHidden() ? '👁 목록에 다시 보이기' : '🙈 목록에서 숨기기'; };
+  paintHide();
+  q('hide').onclick = async () => { await busy(q('hide'), '바꾸는 중…', () => wgSetHidden([s.id], !isHidden())); paintHide(); };
   q('growth').onclick = () => { const key = String(s.email || '').trim().toLowerCase() || 'sid:' + String(s.sid || '').trim(); switchTab('growth'); grOpen(key); };
   const ed = $('wEditable');
   const wc = () => q('wc').textContent = `· ${countW(ed.innerText)} words`; wc();
@@ -1291,7 +1426,7 @@ function wgRenderRows() {
     const el = document.createElement('div'); el.className = 'crow'; el.dataset.i = i;
     el.innerHTML = `<div class="h" draggable="true" title="드래그해서 순서 바꾸기">⠿</div><textarea placeholder="코멘트 한 건">${esc(t)}</textarea>
       <div class="acts"><button title="즐겨찾기에 저장">⭐</button><button title="삭제">✕</button></div>`;
-    const ta = el.querySelector('textarea'); growT(ta);
+    const ta = el.querySelector('textarea');
     ta.oninput = () => { WT.rows[i] = ta.value; growT(ta); wgAutosave(); };
     const [star, del] = el.querySelectorAll('.acts button');
     star.onclick = async () => {
@@ -1307,7 +1442,11 @@ function wgRenderRows() {
       const [m] = WT.rows.splice(from, 1); WT.rows.splice(i, 0, m); wgRenderRows(); wgAutosave(); };
     box.appendChild(el);
   });
+  wgGrowRows();   // 화면에 붙인 뒤에 높이를 재야 이미 쓴 코멘트도 내용만큼 보임
 }
+function wgGrowRows() { document.querySelectorAll('#wgDetail [data-rows] textarea').forEach(growT); }
+// 창 크기가 바뀌면 줄바꿈이 달라지므로 코멘트 칸 높이를 다시 맞춤
+window.addEventListener('resize', () => { clearTimeout(wgGrowRows.t); wgGrowRows.t = setTimeout(wgGrowRows, 120); });
 function wgAddRow(t) { WT.rows.push(t || ''); wgRenderRows(); wgAutosave(); const tas = document.querySelectorAll('#wgDetail [data-rows] textarea'); if (tas.length && !t) tas[tas.length - 1].focus(); }
 async function wgChips() {
   const box = document.querySelector('#wgDetail [data-chips]'); if (!box) return;
