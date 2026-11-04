@@ -82,9 +82,9 @@
   </div>
 </main>
 
+<script src="api-client.js"></script>
 <script>
-/* ===== 설정: Apps Script 웹 앱 URL 붙여넣기 ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
+/* ===== 설정 (서버 연결은 api-client.js — 자료는 학교 NAS에 저장) ===== */
 const RECORD_SECONDS = 5;
 const TARGET_RATE = 16000;   // 16kHz 모노 WAV
 
@@ -127,16 +127,14 @@ function checkEnv() {
 /* ===== 2. 서버 연결 ===== */
 async function ping() {
   const el = $('pingResult');
-  if (API_URL.startsWith('PASTE')) { el.className = 'warn'; el.textContent = '! API_URL이 아직 설정되지 않았습니다 (교사용).'; return; }
   try {
-    const r = await fetch(API_URL + '?action=ping', { cache: 'no-store' });
-    const d = await r.json();
+    const d = await IELTS_API.get({ action: 'ping' });
     if (d.ok && d.ready) { el.className = 'ok'; el.textContent = `✓ 서버 연결됨 (${d.serverTime})`; }
     else if (d.ok) { el.className = 'warn'; el.textContent = '! 서버는 응답했지만 초기 설정(setup)이 안 되어 있습니다.'; }
     else { el.className = 'bad'; el.textContent = '✕ 서버 오류: ' + d.error; }
   } catch (e) {
     el.className = 'bad';
-    el.textContent = '✕ 서버에 연결할 수 없습니다. (웹 앱 액세스 권한이 “모든 사용자”인지 확인)';
+    el.textContent = '✕ 서버에 연결할 수 없습니다. ' + (e.message || '');
   }
 }
 
@@ -261,36 +259,17 @@ async function blobToBase64(blob) {
   return btoa(bin);
 }
 
-/* 1차: 일반 POST(응답 읽기). 실패 시 2차: no-cors POST로 보내고 GET status로 저장 확인 */
+/* 교내 PC 서버로 전송 (암호화·재전송은 api-client.js가 처리) */
 async function postJSON(payload) {
-  const body = JSON.stringify(payload);
-  let firstErr;
-  try {
-    const r = await fetch(API_URL, { method: 'POST', body });
-    const d = await r.json();
-    if (!d.ok) throw Object.assign(new Error(d.error), { server: true });
-    return d;
-  } catch (e) {
-    if (e.server) throw e;          // 서버가 보낸 오류는 그대로 표시
-    firstErr = e;
-  }
-  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
-  for (let i = 0; i < 8; i++) {
-    await new Promise(r => setTimeout(r, 1500));
-    try {
-      const r = await fetch(`${API_URL}?action=status&id=${payload.uploadId}`, { cache: 'no-store' });
-      const d = await r.json();
-      if (d.ok) { d.via = '우회 방식'; return d; }
-    } catch (_) {}
-  }
-  throw new Error(`일반 전송 실패(${firstErr && firstErr.message}), 우회 전송 후에도 저장 확인 안 됨`);
+  const d = await IELTS_API.post(payload);
+  if (!d.ok) throw Object.assign(new Error(d.error), { server: true });
+  return d;
 }
 
 async function upload() {
   if (!wavBlob) return;
   const student = $('student').value.trim();
   if (!student) { showMsg($('upMsg'), 'warn', '3번에 학번과 이름을 입력해 주세요.'); $('student').focus(); return; }
-  if (API_URL.startsWith('PASTE')) { showMsg($('upMsg'), 'bad', 'API_URL이 설정되지 않았습니다 (교사용).'); return; }
   $('btnUpload').disabled = true; showMsg($('upMsg'), 'warn', '제출 중…');
 
   const payload = {

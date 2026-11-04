@@ -388,9 +388,9 @@
 
 </main>
 
+<script src="api-client.js"></script>
 <script>
-/* ================= 설정 ================= */
-const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
+/* ================= 설정 (서버 연결은 api-client.js — 자료는 학교 NAS에 저장) ================= */
 const TARGET_RATE = 16000;
 const MIN_ANSWER_SEC = 3;            // 답변 종료 버튼 활성화까지 최소 시간
 
@@ -410,33 +410,17 @@ function msg(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text
 function vis(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
 
 async function apiGet(params) {
-  const qs = new URLSearchParams(params).toString();
-  const r = await fetch(`${API_URL}?${qs}`, { cache: 'no-store' });
-  const d = await r.json();
+  const d = await IELTS_API.get(params);
   if (!d.ok) throw Object.assign(new Error(d.error || '서버 오류'), { server: true });
   return d;
 }
 
-/* POST: 일반 전송 → 실패 시 no-cors 전송 후 status로 확인 */
+/* POST: 교내 PC 서버로 (암호화·응답 대기는 api-client.js가 처리) */
 async function apiPost(payload) {
   payload.reqId = payload.reqId || rid();
-  const body = JSON.stringify(payload);
-  try {
-    const r = await fetch(API_URL, { method: 'POST', body });
-    const d = await r.json();
-    if (!d.ok) throw Object.assign(new Error(d.error), { server: true });
-    return d;
-  } catch (e) { if (e.server) throw e; }
-  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
-  for (let i = 0; i < 30; i++) {                     // 서버가 바쁠 때를 위해 최대 약 60초까지 확인
-    await sleep(i < 10 ? 1500 : 3000);
-    try {
-      const d = await fetch(`${API_URL}?action=status&id=${payload.reqId}`, { cache: 'no-store' }).then(r => r.json());
-      if (d.ok) return d;
-      if (d.error) throw Object.assign(new Error(d.error), { server: true });
-    } catch (e) { if (e.server) throw e; }
-  }
-  throw new Error('서버 응답을 확인하지 못했습니다.');
+  const d = await IELTS_API.post(payload);
+  if (!d.ok) throw Object.assign(new Error(d.error), { server: true });
+  return d;
 }
 /* 여러 학생이 동시에 다시 보내 몰리지 않도록, 기다리는 시간을 조금씩 늘리고 무작위로 섞음 */
 const backoff = a => sleep(Math.min(20000, 2500 * a) + Math.random() * 3000);
@@ -473,7 +457,6 @@ function loadGis() {
 }
 async function initLogin() {
   show('vLogin');
-  if (API_URL.startsWith('PASTE')) return msg($('loginMsg'), 'bad', 'API_URL이 설정되지 않았습니다 (교사용).');
   try {
     const cfg = await apiGet({ action: 'config' });
     if (!cfg.clientId) return msg($('loginMsg'), 'bad', 'Google 로그인이 아직 설정되지 않았습니다. 선생님께 알려 주세요.');
@@ -494,7 +477,7 @@ async function onCredential(resp) {
     vis('loginMsg', false);
     await enterWithSession();
   } catch (e) {
-    msg($('loginMsg'), 'bad', e.server ? e.message : '서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
+    msg($('loginMsg'), 'bad', e.server || e.offline ? e.message : '서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
   }
 }
 $('toWriting').onclick = e => { if (window.onbeforeunload && !confirm('시험이 진행 중입니다. Writing으로 이동할까요?')) e.preventDefault(); else window.onbeforeunload = null; };

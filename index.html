@@ -67,12 +67,12 @@
     <p class="foot">녹음이 잘 되는지 먼저 확인하고 싶다면 <a href="mictest.html">마이크 테스트</a>를 해보세요.</p>
   </section>
 </main>
+<script src="api-client.js"></script>
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
 const $ = id => document.getElementById(id);
 const SKEY = 'ielts_student_session';
 async function apiGet(params) {
-  const d = await fetch(`${API_URL}?${new URLSearchParams(params)}`, { cache: 'no-store' }).then(r => r.json());
+  const d = await IELTS_API.get(params);
   if (!d.ok) throw Object.assign(new Error(d.error || '서버 오류'), { server: true }); return d;
 }
 function note(t, bad) { const m = $('loginMsg'); m.textContent = t; m.className = 'msg' + (bad ? ' bad' : ''); }
@@ -96,7 +96,7 @@ async function initLogin() {
       try { const d = await apiGet({ action: 'login', role: 'student', idToken: resp.credential });
             try { sessionStorage.setItem(SKEY, JSON.stringify({ session: d.session, user: d.user })); } catch (_) {}
             entered(d.user); }
-      catch (e) { note(e.server ? e.message : '서버에 연결할 수 없습니다.', true); }
+      catch (e) { note(e.server || e.offline ? e.message : '서버에 연결할 수 없습니다.', true); }
     } });
     google.accounts.id.renderButton($('gbtn'), { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko', width: 300 });
   } catch (e) { note(e.message || '서버에 연결할 수 없습니다.', true); }

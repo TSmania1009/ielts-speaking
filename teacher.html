@@ -57,6 +57,7 @@
   .tab { background: transparent; color:#d9d8f5; padding: 8px 18px; }
   .tab:hover { background: rgba(255,255,255,.12); }
   .tab.on { background: var(--gold); color: var(--navy); }
+  .nbadge { display:inline-block; min-width:18px; padding:0 6px; margin-left:6px; border-radius:9px; background:#c62828; color:#fff; font-size:11.5px; line-height:18px; text-align:center; font-weight:700; }
 
   /* 출제: Part 3열 */
   .parts { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
@@ -257,8 +258,9 @@
   </section>
 </main>
 
+<script src="api-client.js"></script>
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
+/* 서버 연결은 api-client.js — 자료는 학교 NAS에 저장 */
 const RATE = 24000;
 const VIDEO_MAX_MB = 25, AUDIO_MAX_MB = 15;
 const DEF = { p1: 30, p2prep: 60, p2long: 120, p2follow: 30, p3: 120 };
@@ -272,24 +274,15 @@ let KEY = '', SETS = [], CUR = '';
 
 /* ---------------- API ---------------- */
 async function apiGet(params) {
-  const r = await fetch(`${API_URL}?${new URLSearchParams(params)}`, { cache: 'no-store' });
-  const d = await r.json();
+  const d = await IELTS_API.get(params);
   if (!d.ok) { if (/로그인이 만료|교사 권한/.test(d.error || '') && params.action !== 'login') setTimeout(onExpired, 0); throw Object.assign(new Error(d.error), { server: true }); }
   return d;
 }
 async function apiPost(payload) {
-  payload.session = KEY; payload.reqId = rid(); const body = JSON.stringify(payload);
-  try { const d = await fetch(API_URL, { method: 'POST', body }).then(r => r.json());
-        if (!d.ok) throw Object.assign(new Error(d.error), { server: true }); return d; }
-  catch (e) { if (e.server) throw e; }
-  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
-  for (let i = 0; i < 60; i++) {
-    await sleep(1500);
-    try { const d = await fetch(`${API_URL}?action=status&id=${payload.reqId}`, { cache: 'no-store' }).then(r => r.json());
-          if (d.ok) return d; if (d.error) throw Object.assign(new Error(d.error), { server: true }); }
-    catch (e) { if (e.server) throw e; }
-  }
-  throw new Error('서버 응답을 확인하지 못했습니다.');
+  payload.session = KEY; payload.reqId = rid();
+  const d = await IELTS_API.post(payload);   // 암호화·응답 대기는 api-client.js가 처리
+  if (!d.ok) { if (/로그인이 만료|교사 권한/.test(d.error || '')) setTimeout(onExpired, 0); throw Object.assign(new Error(d.error), { server: true }); }
+  return d;
 }
 function toast(text, bad) {
   const t = document.createElement('div'); t.className = 'toast' + (bad ? ' bad' : ''); t.textContent = text;
@@ -309,6 +302,24 @@ async function enter(user) {
   ['tabsBar', 'whoami', 'btnLogout'].forEach(id => $(id).classList.remove('hidden'));
   $('whoami').textContent = user.email;
   document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+  refreshBadges();
+  if (!enter.timer) enter.timer = setInterval(refreshBadges, 120000);
+}
+/* ---------------- 새 제출 알림 (메일 대신 탭에 숫자로 표시) ---------------- */
+function setBadge(tab, n) {
+  const b = document.querySelector(`.tab[data-tab="${tab}"]`); if (!b) return;
+  let s = b.querySelector('.nbadge');
+  if (!n) { if (s) s.remove(); return; }
+  if (!s) { s = document.createElement('span'); s.className = 'nbadge'; b.appendChild(s); }
+  s.textContent = n; s.title = tab === 'grade' ? `아직 채점하지 않은 응시 ${n}건` : `아직 첨삭을 시작하지 않은 글 ${n}편`;
+}
+async function refreshBadges() {
+  if (!KEY) return;
+  try {
+    const [w, a] = await Promise.all([apiGet({ action: 'wtSubs', session: KEY }), apiGet({ action: 'tattempts', session: KEY })]);
+    setBadge('wgrade', w.subs.filter(s => !s.done && !s.drafted).length);
+    setBadge('grade', a.attempts.filter(x => x.grade === '미채점').length);
+  } catch (_) {}
 }
 function loadGis() {
   return new Promise((res, rej) => {
@@ -340,9 +351,14 @@ async function onCredential(resp) {
     await enter(d.user);
   } catch (e) { $('loginMsg').textContent = e.message || '로그인하지 못했습니다.'; }
 }
-function onExpired() { try { sessionStorage.removeItem(TKEY); } catch (_) {} KEY = ''; initLogin('로그인이 만료되었습니다. 다시 로그인하세요.'); }
+function onExpired() { try { sessionStorage.removeItem(TKEY); } catch (_) {} KEY = ''; if (IELTS_API.local) return location.reload(); initLogin('로그인이 만료되었습니다. 다시 로그인하세요.'); }
 $('btnLogout').onclick = () => { try { sessionStorage.removeItem(TKEY); google.accounts.id.disableAutoSelect(); } catch (_) {} location.reload(); };
 (async () => {
+  if (IELTS_API.local) {   // 교사 PC·등록된 교사 기기에서 연 화면: Google 로그인 없이 교사로 들어감
+    try { const d = await apiGet({ action: 'localLogin' }); KEY = d.session; await enter(d.user); }
+    catch (e) { $('vLogin').classList.remove('hidden'); $('loginMsg').textContent = e.message || '교사 PC 서버에 연결할 수 없습니다.'; }
+    return;
+  }
   let saved = null; try { saved = JSON.parse(sessionStorage.getItem(TKEY) || 'null'); } catch (_) {}
   if (saved && saved.session) { KEY = saved.session; try { await enter(saved.user); return; } catch (e) { try { sessionStorage.removeItem(TKEY); } catch (_) {} } }
   initLogin();
@@ -1043,6 +1059,7 @@ document.addEventListener('paste', e => {   // 캡처 이미지 붙여넣기 →
 async function wgLoad() {
   const [s, a] = await Promise.all([apiGet({ action: 'wtSubs', session: KEY }), apiGet({ action: 'wtAssignments', session: KEY })]);
   WT.subs = s.subs; WT.assignments = a.assignments; WT.taskTypes = a.taskTypes;
+  setBadge('wgrade', WT.subs.filter(x => !x.done && !x.drafted).length);
   const sel = $('wgAssign'), cur = sel.value;
   sel.innerHTML = '<option value="">전체 과제·자유 연습</option><option value="__free">자유 연습만</option>' + WT.assignments.map(x => `<option value="${esc(x.id)}">${esc(x.id)} · ${esc(x.title)}</option>`).join('');
   sel.value = cur; wgRender();
@@ -1127,7 +1144,6 @@ function wgDetail(s) {
         <button class="ghost" data-addrow style="width:100%;justify-content:center">+ 코멘트 추가</button>
         <div class="chips" data-chips></div>
         <div class="hint" data-auto style="margin-top:8px"></div>
-        <label class="switch" style="margin-top:12px"><input type="checkbox" data-mail checked> 전송할 때 학생에게 메일도 보내기</label>
         <div class="actions" style="margin-top:12px"><button class="plain" data-save>임시 저장</button><button class="gold" data-send>${s.done ? '수정 내용 다시 전송' : '학생에게 전송'}</button></div>
       </div>
     </aside></div>`;
@@ -1151,7 +1167,8 @@ function wgDetail(s) {
   q('send').onclick = async () => {
     await busy(q('send'), '전송 중…', async () => {
       const r = await wgSave(true); s.done = true;
-      toast(r.mailed ? '학생 화면에 공개하고 메일도 보냈어요.' : (q('mail').checked ? '학생 화면에 공개했어요. (메일 실패: ' + (r.mailError || '알 수 없음') + ')' : '학생 화면에 공개했어요.'), !r.mailed && q('mail').checked);
+      toast('학생 화면에 공개했어요. (학생은 Writing 화면의 ‘내 글’에서 확인해요)');
+      refreshBadges();
     });
     if (s.done) { q('send').textContent = '수정 내용 다시 전송'; const pill = box.querySelector('.pill'); pill.className = 'pill st-공개'; pill.textContent = '전송 완료(학생 공개)'; }
   };
@@ -1318,7 +1335,7 @@ function wgCollect() {
 async function wgSave(send) {
   clearTimeout(WT.saveT);
   const payload = Object.assign({ action: send ? 'wtSend' : 'wtSaveDraft' }, wgCollect());
-  if (send) payload.mail = document.querySelector('#wgDetail [data-mail]').checked;
+  if (send) payload.mail = false;   // NAS 서버는 메일을 보내지 않음 (학생은 화면에서 확인)
   const r = await apiPost(payload);
   const a = document.querySelector('#wgDetail [data-auto]'); if (a) a.textContent = '✓ 저장됨';
   return r;

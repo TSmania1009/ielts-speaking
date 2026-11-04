@@ -252,9 +252,9 @@
   </section>
 </main>
 
+<script src="api-client.js"></script>
 <script>
-/* ================= 설정 ================= */
-const API_URL = 'https://script.google.com/macros/s/AKfycbwX9kHZlbXfXKmWgrXJfnwFZH9uWew0T4xXwbsq2OQmP5aos8lgDDIthdLEAw_BJDJFNA/exec';
+/* ================= 설정 (서버 연결은 api-client.js — 자료는 학교 NAS에 저장) ================= */
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -264,27 +264,15 @@ function msg(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text
 function show(view) { ['vLogin', 'vHome', 'vCompose', 'vDetail'].forEach(v => vis(v, v === view)); window.scrollTo(0, 0); }
 
 async function apiGet(params) {
-  const r = await fetch(`${API_URL}?${new URLSearchParams(params)}`, { cache: 'no-store' });
-  const d = await r.json();
+  const d = await IELTS_API.get(params);
   if (!d.ok) { if (/로그인이 만료/.test(d.error || '')) expired(); throw Object.assign(new Error(d.error || '서버 오류'), { server: true }); }
   return d;
 }
 async function apiPost(payload) {
   payload.session = S.session; payload.reqId = rid();
-  const body = JSON.stringify(payload);
-  try {
-    const d = await fetch(API_URL, { method: 'POST', body }).then(r => r.json());
-    if (!d.ok) throw Object.assign(new Error(d.error), { server: true });
-    return d;
-  } catch (e) { if (e.server) throw e; }
-  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body });
-  for (let i = 0; i < 12; i++) {
-    await sleep(1500);
-    try { const d = await fetch(`${API_URL}?action=status&id=${payload.reqId}`, { cache: 'no-store' }).then(r => r.json());
-          if (d.ok) return d; if (d.error) throw Object.assign(new Error(d.error), { server: true }); }
-    catch (e) { if (e.server) throw e; }
-  }
-  throw new Error('서버 응답을 확인하지 못했습니다.');
+  const d = await IELTS_API.post(payload);   // 암호화·응답 대기는 api-client.js가 처리
+  if (!d.ok) { if (/로그인이 만료/.test(d.error || '')) expired(); throw Object.assign(new Error(d.error), { server: true }); }
+  return d;
 }
 
 /* ================= 로그인 (Speaking과 같은 세션 공유) ================= */
@@ -321,7 +309,7 @@ async function onCredential(resp) {
     const d = await apiGet({ action: 'login', role: 'student', idToken: resp.credential });
     S.session = d.session; applyUser(d.user); saveSession(); expiredShown = false; vis('loginMsg', false);
     await goHome();
-  } catch (e) { msg($('loginMsg'), 'bad', e.server ? e.message : '서버에 연결할 수 없습니다.'); }
+  } catch (e) { msg($('loginMsg'), 'bad', e.server || e.offline ? e.message : '서버에 연결할 수 없습니다.'); }
 }
 $('btnLogout').onclick = () => {
   if (composing() && !confirm('작성 중인 글은 임시저장돼요. 로그아웃할까요?')) return;
@@ -512,7 +500,7 @@ async function saveDraft(beacon) {
   if (!composing() || !S.session) return;
   const draft = buildDraft(); localSave(draft);
   if (beacon) {   // 창을 닫을 때
-    try { navigator.sendBeacon(API_URL, JSON.stringify({ action: 'wDraftSave', session: S.session, draft, reqId: rid() })); } catch (_) {}
+    try { IELTS_API.beacon({ action: 'wDraftSave', session: S.session, draft, reqId: rid() }); } catch (_) {}
     return;
   }
   if (saveBusy) { savePending = true; return; }
