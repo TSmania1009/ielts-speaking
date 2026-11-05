@@ -1035,6 +1035,7 @@ $('btnStart').onclick = async () => {
 
   S.attemptId = `${S.set.id}-${S.sid || S.email.split('@')[0]}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 5)}`;
   window.onbeforeunload = () => '시험이 진행 중입니다.';
+  prefetchClosing();
   $('panelSlot').appendChild($('stage')); setExaminer('idle'); updateStage();   // 면접관 화면을 시험 화면 오른쪽으로
   apiPostRetry({ action: 'start', session: S.session, setId: S.set.id, attemptId: S.attemptId, device }).catch(() => {});
   S.idx = 0; runExam();
@@ -1126,10 +1127,53 @@ async function runExam() {
     await sleep(600);
   }
   $('prog').style.width = '100%';
+  await closingStatement();
   examFinished = true;
   setExaminer('idle'); cameraOff();
   show('vDone'); renderUp();
   if (!uploading) finalize();
+}
+
+/* ================= 시험 종료 멘트 ================= */
+/* 실제 IELTS처럼 면접관이 "Thank you. That is the end of the speaking test."로 끝낸다.
+   exam.html과 같은 폴더에 closing.mp3가 있으면 그 음성, 없으면 브라우저 영어 음성(TTS), 둘 다 안 되면 글자만. */
+const CLOSING_TEXT = 'Thank you. That is the end of the speaking test.';
+let closingBuf = null;
+function prefetchClosing() {
+  fetch('closing.mp3', { cache: 'no-cache' })
+    .then(r => r.ok ? r.arrayBuffer() : null).then(b => { closingBuf = b; }).catch(() => {});
+  // iPad Safari는 사용자가 누른 순간에 한 번 말하게 해 둬야 나중에 TTS가 나온다
+  try { if (window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (_) {}
+}
+function speakTTS(text) {
+  return new Promise(res => {
+    try {
+      if (!window.speechSynthesis) return res(false);
+      const u = new SpeechSynthesisUtterance(text);
+      const voices = speechSynthesis.getVoices();
+      const v = voices.find(x => /^en[-_]GB/i.test(x.lang)) || voices.find(x => /^en/i.test(x.lang));
+      if (v) u.voice = v;
+      u.lang = v ? v.lang : 'en-GB'; u.rate = 0.95;
+      let done = false; const fin = ok => { if (!done) { done = true; res(ok); } };
+      u.onend = () => fin(true); u.onerror = () => fin(false);
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      setTimeout(() => fin(true), 8000);   // onend 누락 대비
+    } catch (e) { res(false); }
+  });
+}
+async function closingStatement() {
+  show('vQ');
+  ['cue', 'memoWrap', 'timer', 'qMeter', 'btnEnd', 'btnSkipPrep', 'videoWrap', 'fvWrap'].forEach(id => vis(id, false));
+  setPhase('', '');
+  $('qLabel').textContent = '시험 종료';
+  $('qText').textContent = CLOSING_TEXT;
+  setExaminer('talk');
+  let played = false;
+  if (closingBuf) played = await playAudio(closingBuf);
+  if (!played) played = await speakTTS(CLOSING_TEXT);
+  if (!played) await sleep(3000);
+  setExaminer('idle');
+  await sleep(800);
 }
 
 let finalized = false;
