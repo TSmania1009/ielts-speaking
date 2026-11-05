@@ -209,6 +209,8 @@
   .tscroll { overflow-x:auto; }
   .growth-row { display:grid; grid-template-columns: 1fr auto; gap: 4px 12px; cursor:pointer; margin:0; border-left: 5px solid var(--gold); }
   .growth-row:hover { border-color: var(--navy-2); border-left-color: var(--gold); }
+  .growth-row.sel { grid-template-columns: auto 1fr auto; align-items:start; }
+  .growth-row input[type=checkbox] { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--navy); }
   .gsec-title { font-size: 14px; font-weight: 800; color: var(--navy); margin: 18px 0 0; }
 </style>
 </head>
@@ -260,9 +262,14 @@
     <div id="grList">
       <div class="card row between">
         <div><h2>성장 기록 (Speaking · Writing)</h2><p class="hint" style="margin:4px 0 0">같은 학생의 Speaking 응시와 Writing 제출을 시간순으로 비교해요. 학생에게는 Band·전사문 없이, 공개한 응시의 지표, 피드백 받은 글의 단어 수·작성 시간, 공개한 성장 분석만 보여요.</p></div>
-        <div class="row"><input type="text" id="grQ" placeholder="이름·학번·이메일 검색" style="width:200px"><button class="plain" id="grReload">새로고침</button></div>
+        <div class="row"><input type="text" id="grQ" placeholder="이름·학번·이메일 검색" style="width:200px">
+          <select id="grMode" style="width:auto"><option value="">성장 기록이 있는 학생</option><option value="__ex">🗂 뺀 기록이 있는 학생</option></select>
+          <label class="switch"><input type="checkbox" id="grAll"> 모두 선택</label><button class="plain" id="grReload">새로고침</button></div>
       </div>
+      <div class="hint" id="grCount" style="margin: 0 0 10px"></div>
       <div id="grRows" class="alist"></div>
+      <div class="delbar hidden" id="grBar"><span id="grSelCount"></span><div class="row">
+        <button class="ghost" id="grRestore">↩ 뺀 기록 모두 되돌리기</button><button class="danger" id="grDel">🗑 성장 기록에서 모두 빼기</button></div></div>
     </div>
     <div id="grDetail" class="hidden"></div>
    </div>
@@ -1124,16 +1131,45 @@ function grShowList() { vis('grList', true); vis('grDetail', false); }
 async function grLoad() { GR.list = (await apiGet({ action: 'tgrowthList', session: KEY })).students; grRender(); }
 $('grReload').onclick = () => busy($('grReload'), '불러오는 중…', grLoad);
 $('grQ').oninput = () => grRender();
+$('grMode').onchange = () => { GRSEL.clear(); grRender(); };
+/* 학생 여러 명 선택 → 성장 기록에서 모두 빼기 / 되돌리기 */
+const GRSEL = new Set();
+const grActive = s => (s.count + (s.wCount || 0)) > 0;
+function grVisible() {
+  const q = $('grQ').value.trim().toLowerCase(), ex = $('grMode').value === '__ex';
+  return GR.list.filter(s => (ex ? s.excluded > 0 : grActive(s)) && (!q || [s.name, s.sid, s.email].some(v => String(v || '').toLowerCase().includes(q))));
+}
+function grBar() {
+  const ex = $('grMode').value === '__ex';
+  vis('grBar', GRSEL.size > 0); $('grSelCount').textContent = `학생 ${GRSEL.size}명 선택됨`;
+  vis('grRestore', ex); vis('grDel', !ex);
+}
+$('grAll').onchange = e => { grVisible().forEach(s => e.target.checked ? GRSEL.add(s.key) : GRSEL.delete(s.key)); grRender(); };
+$('grDel').onclick = confirmTwice($('grDel'), 'AI 성장 분석도 삭제돼요. 한 번 더', () => busy($('grDel'), '정리 중…', async () => {
+  const r = await apiPost({ action: 'tgrowthStudents', keys: [...GRSEL], exclude: true });
+  toast(`학생 ${GRSEL.size}명의 응시 ${r.attempts}건·글 ${r.wsubs}건을 성장 기록에서 빼고, 성장 분석 ${r.analyses}개를 삭제했어요. ‘🗂 뺀 기록이 있는 학생’에서 되돌릴 수 있어요.`);
+  GRSEL.clear(); await grLoad();
+}));
+$('grRestore').onclick = () => busy($('grRestore'), '되돌리는 중…', async () => {
+  const r = await apiPost({ action: 'tgrowthStudents', keys: [...GRSEL], exclude: false });
+  toast(`응시 ${r.attempts}건·글 ${r.wsubs}건을 성장 기록에 다시 넣었어요.`);
+  GRSEL.clear(); await grLoad();
+});
 function grRender() {
-  const q = $('grQ').value.trim().toLowerCase();
-  const list = GR.list.filter(s => !q || [s.name, s.sid, s.email].some(v => String(v || '').toLowerCase().includes(q)));
-  $('grRows').innerHTML = list.length ? '' : '<div class="card sub">응시 기록이 없습니다.</div>';
+  const list = grVisible(), ids = new Set(list.map(s => s.key)), ex = $('grMode').value === '__ex';
+  [...GRSEL].forEach(k => { if (!ids.has(k)) GRSEL.delete(k); });
+  $('grAll').checked = list.length > 0 && list.every(s => GRSEL.has(s.key));
+  const exN = GR.list.filter(s => s.excluded > 0).length;
+  $('grCount').textContent = `학생 ${GR.list.filter(grActive).length}명${exN ? ` · 뺀 기록이 있는 학생 ${exN}명` : ''} · 표시 ${list.length}명`;
+  grBar();
+  $('grRows').innerHTML = list.length ? '' : `<div class="card sub">${ex ? '성장 기록에서 뺀 기록이 없어요.' : '응시 기록이 없습니다.'}</div>`;
   list.forEach(s => {
-    const el = document.createElement('div'); el.className = 'card growth-row';
+    const el = document.createElement('div'); el.className = 'card growth-row sel';
     const pc = s.growth === '공개' ? 'st-공개' : s.growth === '초안' ? 'st-검토' : 'st-미채점';
-    el.innerHTML = `<div><b>${esc(s.name)}</b> <span class="hint">${esc(s.sid || '')} ${esc(s.email || '')}</span>
+    el.innerHTML = `<input type="checkbox" ${GRSEL.has(s.key) ? 'checked' : ''}><div><b>${esc(s.name)}</b> <span class="hint">${esc(s.sid || '')} ${esc(s.email || '')}</span>
         <div class="hint">Speaking 응시 ${s.count}회 · 채점 ${s.graded}회 · 공개 ${s.published}회 · Writing 제출 ${s.wCount || 0}건 · 피드백 ${s.wDone || 0}건${s.excluded ? ` · 뺀 기록 ${s.excluded}건` : ''} · 최근 ${esc(String(s.last).slice(0, 10))}</div></div>
       <div style="text-align:right"><span class="pill ${pc}">성장 분석 ${esc(s.growth)}</span></div>`;
+    el.querySelector('input').onclick = e => { e.stopPropagation(); e.target.checked ? GRSEL.add(s.key) : GRSEL.delete(s.key); $('grAll').checked = false; grBar(); };
     el.onclick = () => grOpen(s.key);
     $('grRows').appendChild(el);
   });
