@@ -144,6 +144,12 @@
   .wa-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
   .wa-card { cursor:pointer; margin:0; border-left: 5px solid var(--gold); }
   .wa-card:hover { border-color: var(--navy-2); border-left-color: var(--gold); }
+  .wa-lines { display:flex; flex-direction:column; gap: 6px; }
+  .wa-line { display:grid; grid-template-columns: auto 1fr auto auto; align-items:center; gap: 12px; cursor:pointer; margin:0; padding: 10px 14px; border-left: 5px solid var(--gold); }
+  .wa-line:hover { border-color: var(--navy-2); border-left-color: var(--gold); }
+  .wa-line .t { font-weight: 600; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .wa-line .hint { white-space: nowrap; }
+  @media (max-width: 700px) { .wa-line { grid-template-columns: auto 1fr auto; } .wa-line .meta { display:none; } }
   .wa-card .pv { font-size: 13px; color:#4a4e68; margin-top: 6px; overflow:hidden; display:-webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .ok-pill { background:#e6f5ee; color: var(--ok); } .off-pill { background:#eef0f5; color: var(--muted); }
   .img-prev img { max-width: 100%; max-height: 360px; border-radius: 8px; border:1px solid var(--line); margin-top: 8px; background:#fff; }
@@ -220,13 +226,13 @@
   <div class="brand"><b>IELTS 교사용</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div>
   <span class="hint hidden" id="whoami" style="color:#d9d8f5; margin-left:auto"></span>
   <button class="hidden" id="btnLogout" style="background: rgba(255,255,255,.12); padding: 7px 12px; font-size: 13px">로그아웃</button>
-  <div class="tabs hidden" id="tabsBar"><button class="tab on" data-tab="author">Speaking 출제</button><button class="tab" data-tab="grade">Speaking 채점</button><button class="tab" data-tab="growth">성장 기록</button><button class="tab" data-tab="wassign">Writing 과제</button><button class="tab" data-tab="wgrade">Writing 첨삭</button></div>
+  <div class="tabs hidden" id="tabsBar"><button class="tab on" data-tab="author">Speaking 출제</button><button class="tab" data-tab="grade">Speaking 채점</button><button class="tab" data-tab="growth">성장 기록</button><button class="tab" data-tab="wassign">Writing 출제</button><button class="tab" data-tab="wgrade">Writing 첨삭</button></div>
 </header>
 <main>
   <section id="vLogin" class="login card">
     <img src="cnsa-logo.png" alt="CNSA">
     <h1>교사용 페이지</h1>
-    <p class="sub">Speaking 출제·채점과 Writing 과제·첨삭을 한 곳에서 합니다.</p>
+    <p class="sub">Speaking 출제·채점과 Writing 출제·첨삭을 한 곳에서 합니다.</p>
     <p class="sub" style="margin:0">교사로 등록된 학교 Google 계정으로 로그인하세요.</p>
     <div id="gbtn" style="display:flex; justify-content:center; margin: 18px 0 6px; min-height: 44px"></div>
     <div id="loginMsg" class="hint" style="color: var(--bad); white-space: pre-line"></div>
@@ -275,8 +281,10 @@
    </div>
    <div id="tabWAssign" class="hidden">
     <div class="card row between">
-      <div><h2>Writing 과제</h2><p class="hint" style="margin:4px 0 0">학생 화면에는 ‘공개’한 과제만 보여요. 학생은 과제 없이 자유 연습도 할 수 있어요.</p></div>
-      <div class="row"><button class="gold" id="waNew">+ 새 과제</button><button class="plain" id="waReload">새로고침</button></div>
+      <div><h2>Writing 출제</h2><p class="hint" style="margin:4px 0 0">학생 화면에는 ‘공개’한 과제만 보여요. 학생은 과제 없이 자유 연습도 할 수 있어요.</p></div>
+      <div class="row"><div class="seg" id="waView"><button data-v="block">블록</button><button data-v="line">한 줄 목록</button></div>
+        <select id="waSort" style="width:auto"><option value="id">번호순 (W01 →)</option><option value="idDesc">번호 역순</option></select>
+        <button class="gold" id="waNew">+ 새 과제</button><button class="plain" id="waReload">새로고침</button></div>
     </div>
     <div id="waForm" class="hidden"></div>
     <div id="waList" class="wa-grid"></div>
@@ -1291,10 +1299,25 @@ async function waLoad() {
   WT.assignments = d.assignments; WT.taskTypes = d.taskTypes; waRenderList();
 }
 async function waImages(force) { if (!WT.images || force) WT.images = (await apiGet({ action: 'wtImages', session: KEY })).images; return WT.images; }
+/* 보기(블록/한 줄 목록)와 정렬(기본: W01부터 번호순)은 이 기기에 기억 */
+const waNum = a => parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+$('waSort').value = getView('ielts_waSort', 'id'); if ($('waSort').selectedIndex < 0) $('waSort').value = 'id';
+$('waSort').onchange = () => { setView('ielts_waSort', $('waSort').value); waRenderList(); };
+initSeg('waView', 'ielts_waView', 'block', () => waRenderList());
 function waRenderList() {
-  const box = $('waList');
+  const box = $('waList'), line = getView('ielts_waView', 'block') === 'line', desc = $('waSort').value === 'idDesc';
+  box.className = line ? 'wa-lines' : 'wa-grid';
   box.innerHTML = WT.assignments.length ? '' : '<div class="card hint">아직 과제가 없어요. “+ 새 과제”로 만들어 보세요.</div>';
-  WT.assignments.forEach(a => {
+  const list = WT.assignments.slice().sort((x, y) => (waNum(x) - waNum(y)) * (desc ? -1 : 1));
+  list.forEach(a => {
+    if (line) {
+      const el = document.createElement('div'); el.className = 'card wa-line';
+      el.innerHTML = `<span class="tag">${esc(a.id)}</span><span class="t" title="${esc(a.title)}">${esc(a.title)}</span>
+        <span class="hint meta">${esc(a.task)} · ${esc(a.type)}${a.imageId ? ' · 🖼' : ''} · 제출 ${a.submissions}건</span>
+        <span class="pill ${a.open ? 'ok-pill' : 'off-pill'}">${a.open ? '공개' : '비공개'}</span>`;
+      el.onclick = () => waEdit(a);
+      box.appendChild(el); return;
+    }
     const el = document.createElement('div'); el.className = 'card wa-card';
     el.innerHTML = `<div class="row between"><span class="tag">${esc(a.id)}</span><span class="pill ${a.open ? 'ok-pill' : 'off-pill'}">${a.open ? '공개' : '비공개'}</span></div>
       <div class="qtext">${esc(a.title)}</div><div class="hint">${esc(a.task)} · ${esc(a.type)}${a.imageId ? ' · 🖼 이미지' : ''}${a.limit ? ' · ' + esc(a.limit) + '분' : ''} · 제출 ${a.submissions}건</div>
