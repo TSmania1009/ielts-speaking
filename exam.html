@@ -191,6 +191,27 @@
   .modes a.on { background: var(--gold); color: var(--navy); } .modes a:hover:not(.on) { background: rgba(255,255,255,.12); }
   .back { width:auto; margin: 0 0 14px; padding: 9px 16px; font-size: 14px; }
 
+  /* 직접 전사 */
+  .trwide { margin-top: 20px; }
+  .mini { width:auto; margin:0; padding: 8px 14px; font-size: 14px; }
+  .trguide summary { cursor:pointer; font-weight: 700; color: var(--navy); }
+  .trguide ul { margin: 10px 0 0; padding-left: 20px; font-size: 15px; color: var(--ink); }
+  .trguide li { margin: 4px 0; }
+  .trguide kbd { font: 700 12px/1 inherit; background: var(--navy-soft); color: var(--navy); border:1px solid #d4d2f3; border-radius: 5px; padding: 3px 6px; }
+  .trprog { display:flex; align-items:center; gap: 12px; margin: 0 0 16px; font-weight: 700; color: var(--navy); }
+  .trprog .bar { flex:1; height: 8px; background:#e3e4f2; border-radius: 4px; overflow:hidden; }
+  .trprog .bar > div { height:100%; background: linear-gradient(90deg, var(--ok), #4cc38a); width:0; transition: width .3s; }
+  .trcard .rhead .qtext { font-size: 17px; }
+  .trstate { font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .trstate.ok { color: var(--ok); } .trstate.warn { color: var(--warn); } .trstate.bad { color: var(--bad); }
+  .trctrl { display:flex; align-items:center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .trctrl audio { flex: 1 1 260px; margin: 0; min-width: 0; }
+  .trctrl .speed { display:flex; gap: 2px; background: var(--navy-soft); border-radius: 9px; padding: 3px; }
+  .trctrl .speed button { width:auto; margin:0; padding: 6px 10px; font-size: 13px; background: transparent; color: var(--navy); border-radius: 7px; }
+  .trctrl .speed button.on { background: var(--navy); color:#fff; }
+  .trcard textarea { margin-top: 12px; font-size: 16px; line-height: 1.7; min-height: 120px; resize: vertical; }
+  .trfoot { display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--muted); }
+
   @media (max-width: 900px) {
     .login, .grid2, .qgrid { grid-template-columns: 1fr; }
     .login .hero { min-height: 240px; }
@@ -249,6 +270,33 @@
         <button class="gold" id="btnGrowth" style="margin-top:14px">📈 내 성장 기록 보기</button>
       </div>
     </div>
+    <div class="card trwide">
+      <h2>🎧 내 답변 직접 전사하기</h2>
+      <p class="sub">제출한 녹음을 다시 들으며 내가 한 말을 그대로 받아 적어 보세요. 선생님 확인 전에도 할 수 있고, 적은 내용은 선생님도 볼 수 있어요.</p>
+      <div class="setlist results" id="trList"><p class="empty">불러오는 중…</p></div>
+    </div>
+  </section>
+
+  <!-- 직접 전사 -->
+  <section id="vTr" class="hidden">
+    <button class="secondary back" id="btnTrBack">← 돌아가기</button>
+    <h1 id="trTitle"></h1>
+    <p class="sub" id="trDate"></p>
+    <div class="card trguide">
+      <details id="trGuide" open>
+        <summary>전사하는 방법</summary>
+        <ul>
+          <li><b>들리는 그대로</b> 적어요. 문법이 틀렸어도 고치지 말고 실제로 한 말을 적어요.</li>
+          <li><b>um, uh, er</b> 같은 소리와 반복한 말(“I I think”), 말하다 고친 부분도 그대로 적어요.</li>
+          <li>잘 안 들리는 곳은 <b>(...)</b>로 표시해요.</li>
+          <li>글 쓰는 칸에서 <kbd>Esc</kbd>를 누르면 재생/일시정지돼요. 다시 재생하면 2초 앞에서부터 들려줘요.</li>
+          <li>잘 안 들리면 <b>0.75×</b>로 느리게 들어 보세요. 적는 대로 자동 저장돼요.</li>
+          <li>다 적은 뒤 처음부터 읽어 보며 <b>문법 실수와 더 좋은 표현</b>을 찾아보세요.</li>
+        </ul>
+      </details>
+    </div>
+    <div class="trprog"><span id="trCount"></span><div class="bar"><div id="trBar"></div></div></div>
+    <div id="trAnswers" class="rgrid"></div>
   </section>
 
   <!-- 결과 보기 -->
@@ -394,6 +442,7 @@
         <button id="btnSaveLocal" class="secondary hidden">실패한 답변을 기기에 저장</button>
       </div>
       <div id="doneMsg" class="msg hidden"></div>
+      <button id="btnTranscribe" class="gold hidden">🎧 내 답변 듣고 직접 전사하기</button>
     </div>
   </section>
 
@@ -414,7 +463,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 function show(view) {
-  ['vLoading', 'vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone', 'vResult', 'vGrowth'].forEach(v => $(v).classList.toggle('hidden', v !== view));
+  ['vLoading', 'vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone', 'vResult', 'vGrowth', 'vTr'].forEach(v => $(v).classList.toggle('hidden', v !== view));
   window.scrollTo(0, 0);
 }
 function msg(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text; }
@@ -529,7 +578,7 @@ function renderSets(sets) {
     b.onclick = () => loadExam(s.id);
     box.appendChild(b);
   });
-  loadResults();
+  loadResults(); loadTrList();
   if (location.hash === '#growth') {               // 로그인한 뒤 성장 기록으로 넘어가는 경우
     try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
     openGrowth();
@@ -735,6 +784,160 @@ async function openGrowth() {
   } catch (e) { box.innerHTML = `<div class="card"><p class="empty">성장 기록을 불러오지 못했어요. ${e.server ? escapeHtml(e.message) : '인터넷 연결을 확인하세요.'}</p></div>`; }
 }
 function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+/* ================= 직접 전사 (제출한 내 녹음을 듣고 받아 적기) =================
+   - 공개 전 응시도 가능. 학생이 적은 전사만 주고받음 (AI 전사·Band는 받지 않음)
+   - 적는 대로 기기에 임시 보관 → 잠시 멈추면 서버에 저장. 저장되면 임시 보관은 지움 */
+const TR_FILLER = /\b(?:u+m+|u+h+|e+r+m*|h+m+|a+h+)\b/gi;   // 서버(Code.gs FILLER_RE)와 같은 기준
+const TR = { list: [], att: null, cards: [], from: 'vSets' };
+const trKey = (attemptId, a) => `ielts_tr_${attemptId}_${a.part}-${a.order}`;
+function trLocal(k, v) {
+  try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) { return null; }
+}
+async function loadTrList() {
+  const box = $('trList');
+  try {
+    TR.list = (await apiGet({ action: 'myAttempts', session: S.session })).attempts;
+    box.innerHTML = TR.list.length ? '' : '<p class="empty">아직 제출한 Speaking 답변이 없어요. 모의고사를 보면 여기에서 전사할 수 있어요.</p>';
+    TR.list.forEach(a => {
+      const done = a.answers.filter(x => String(x.selfTranscript || '').trim()).length, n = a.answers.length;
+      const b = document.createElement('button');
+      b.innerHTML = `${escapeHtml(a.setTitle)}<small>${escapeHtml(String(a.date).slice(0, 16))} 응시 · ${done === n ? '✓ 전사 완료' : `전사 ${done}/${n}`}</small>`;
+      if (done === n) b.style.borderLeftColor = 'var(--ok)';
+      b.onclick = () => openTranscribe(a, null, 'vSets');
+      box.appendChild(b);
+    });
+  } catch (e) { box.innerHTML = '<p class="empty">목록을 불러오지 못했어요. 잠시 후 새로고침해 주세요.</p>'; }
+}
+function trStats(text, sec) {
+  const fillers = (text.match(TR_FILLER) || []).length;
+  const words = text.replace(TR_FILLER, ' ').replace(/\(\.\.\.\)/g, ' ').split(/\s+/).filter(w => /[a-z]/i.test(w)).length;
+  const s = [`단어 ${words}개`];
+  if (fillers) s.push(`um·uh ${fillers}번`);
+  if (words && sec >= 5) s.push(`분당 약 ${Math.round(words / (sec / 60))}단어`);
+  return s.join(' · ');
+}
+function trProgress() {
+  const n = TR.cards.length, done = TR.cards.filter(c => c.saved.trim()).length;
+  $('trCount').textContent = `전사 ${done}/${n}`;
+  $('trBar').style.width = (n ? done / n * 100 : 0) + '%';
+}
+/* localBlobs: 방금 시험 본 경우 기기에 있는 녹음 { 'P1-1': Blob } — 다시 받지 않고 바로 재생 */
+function openTranscribe(att, localBlobs, from) {
+  TR.att = att; TR.from = from || 'vSets';
+  TR.cards.forEach(c => { try { c.audio.pause(); } catch (_) {} });
+  $('trTitle').textContent = att.setTitle;
+  $('trDate').textContent = String(att.date).slice(0, 16) + ' 응시 · 답변 ' + att.answers.length + '개';
+  const box = $('trAnswers'); box.innerHTML = '';
+  TR.cards = att.answers.map(a => trCard(att, a, localBlobs && localBlobs[`P${a.part}-${a.order}`]));
+  TR.cards.forEach(c => box.appendChild(c.el));
+  trProgress();
+  show('vTr');
+}
+function trCard(att, a, localBlob) {
+  const el = document.createElement('div'); el.className = 'card trcard';
+  el.innerHTML = `<div class="rhead"><span class="tagq">Part ${a.part} · ${a.order}</span>
+      <div class="qtext">${escapeHtml(a.question)}</div><span class="trstate" data-st></span></div>
+    <button class="secondary mini" data-load style="margin-top:12px">▶ 녹음 불러오기 (${escapeHtml(a.duration || '?')}초)</button>
+    <div class="trctrl hidden" data-ctrl>
+      <audio controls preload="auto"></audio>
+      <button class="secondary mini" data-back title="3초 뒤로">⟲ 3초</button>
+      <div class="speed">${[0.75, 1, 1.25].map(r => `<button data-rate="${r}" class="${r === 1 ? 'on' : ''}">${r}×</button>`).join('')}</div>
+    </div>
+    <textarea rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="들리는 그대로 영어로 적어 보세요. um, uh 같은 소리도 적어요."></textarea>
+    <div class="trfoot"><span data-stats></span><button class="secondary mini" data-save>저장</button></div>`;
+  const f = n => el.querySelector(`[data-${n}]`);
+  const audio = el.querySelector('audio'), ta = el.querySelector('textarea'), sec = parseFloat(a.duration) || 0;
+  const key = trKey(att.attemptId, a);
+  const c = { el, audio, saved: String(a.selfTranscript || ''), saving: null, timer: 0, failed: false, rate: 1 };
+  // 저장 못 한 내용이 기기에 남아 있으면 되살림
+  const local = trLocal(key);
+  ta.value = local != null && local !== c.saved ? local : c.saved;
+  const state = (cls, text) => { const s = f('st'); s.className = 'trstate ' + cls; s.textContent = text; };
+  const refresh = () => {
+    f('stats').textContent = trStats(ta.value, sec);
+    if (c.saving) return;
+    if (ta.value === c.saved) state(c.saved.trim() ? 'ok' : '', c.saved.trim() ? '✓ 저장됨' : '');
+    else state(c.failed ? 'bad' : 'warn', c.failed ? '⚠ 저장 못 함 — 저장을 눌러 주세요' : '저장 전');
+  };
+  if (local != null && local !== c.saved) { refresh(); state('warn', '저장 안 된 내용을 되살렸어요'); } else refresh();
+
+  c.save = async () => {
+    clearTimeout(c.timer);
+    if (c.saving) { await c.saving; if (ta.value === c.saved) return; }
+    if (ta.value === c.saved) { refresh(); return; }
+    const text = ta.value;
+    state('', '저장 중…');
+    c.saving = apiPostRetry({ action: 'selfTranscript', session: S.session, attemptId: att.attemptId, part: a.part, order: a.order, text }, 3)
+      .then(() => { c.saved = text; c.failed = false; a.selfTranscript = text; if (ta.value === text) trLocal(key, null); })
+      .catch(e => { c.failed = true; c.error = e.server ? e.message : ''; })
+      .finally(() => { c.saving = null; refresh(); if (c.failed && c.error) state('bad', '⚠ ' + c.error); trProgress(); });
+    await c.saving;
+  };
+  c.dirty = () => ta.value !== c.saved || !!c.saving;
+  ta.addEventListener('input', () => { trLocal(key, ta.value); c.failed = false; refresh(); clearTimeout(c.timer); c.timer = setTimeout(c.save, 2000); });
+  ta.addEventListener('blur', () => { if (ta.value !== c.saved) c.save(); });
+  f('save').onclick = () => c.save();
+
+  // 녹음: 방금 본 시험이면 기기에 있는 파일, 아니면 서버에서 받음
+  const ready = url => { audio.src = url; audio.playbackRate = c.rate; vis(f('load'), false); vis(f('ctrl'), true); };
+  c.loadAudio = async () => {
+    if (audio.src) return true;
+    if (localBlob) { ready(URL.createObjectURL(localBlob)); return true; }
+    const btn = f('load'); btn.disabled = true; btn.textContent = '불러오는 중…';
+    try {
+      const d = await apiGet({ action: 'myAudio', session: S.session, fileId: a.fileId });
+      const bin = atob(d.data), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
+      ready(URL.createObjectURL(new Blob([u], { type: d.mime || 'audio/wav' })));
+      return true;
+    } catch (e) { btn.disabled = false; btn.textContent = '▶ 다시 불러오기'; return false; }
+  };
+  f('load').onclick = async () => { if (await c.loadAudio()) { audio.play().catch(() => {}); ta.focus(); } };
+  if (localBlob) ready(URL.createObjectURL(localBlob));
+  f('back').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 3); };
+  el.querySelectorAll('[data-rate]').forEach(b => b.onclick = () => {
+    c.rate = +b.dataset.rate; audio.playbackRate = c.rate;
+    el.querySelectorAll('[data-rate]').forEach(x => x.classList.toggle('on', x === b));
+  });
+  audio.addEventListener('play', () => TR.cards.forEach(o => { if (o !== c) try { o.audio.pause(); } catch (_) {} }));   // 한 번에 하나만
+  // 글 쓰는 칸에서 Esc: 재생/일시정지 (다시 재생하면 2초 앞에서부터)
+  ta.addEventListener('keydown', async e => {
+    if (e.key !== 'Escape' || e.isComposing) return;
+    e.preventDefault();
+    if (!(await c.loadAudio())) return;
+    if (audio.paused) { if (audio.currentTime > 0 && !audio.ended) audio.currentTime = Math.max(0, audio.currentTime - 2); audio.play().catch(() => {}); }
+    else audio.pause();
+  });
+  return c;
+}
+/* 돌아가기 전에 저장 안 된 내용을 모두 저장 */
+async function trFlush() {
+  await Promise.all(TR.cards.filter(c => c.dirty()).map(c => c.save()));
+  return TR.cards.every(c => !c.dirty());
+}
+$('btnTrBack').onclick = async () => {
+  const b = $('btnTrBack'); b.disabled = true; b.textContent = '저장하는 중…';
+  const ok = await trFlush();
+  b.disabled = false; b.textContent = '← 돌아가기';
+  if (!ok && !confirm('저장하지 못한 전사가 있어요. (이 기기에는 남아 있어서 다음에 열면 되살아나요)\n그래도 나갈까요?')) return;
+  TR.cards.forEach(c => { try { c.audio.pause(); } catch (_) {} });
+  if (TR.from === 'vDone') { location.reload(); return; }   // 시험 직후: 새로 고쳐 시험 상태를 깨끗이 (로그인은 유지)
+  show('vSets'); loadTrList();
+};
+window.addEventListener('beforeunload', e => {
+  if (!$('vTr').classList.contains('hidden') && TR.cards.some(c => c.dirty())) { e.preventDefault(); e.returnValue = ''; }
+});
+$('btnTranscribe').onclick = async () => {
+  const b = $('btnTranscribe'); b.disabled = true; b.textContent = '불러오는 중…';
+  const blobs = {}; Q.forEach(it => { if (it.status === '완료') blobs[it.label] = it.blob; });
+  try {
+    const list = (await apiGet({ action: 'myAttempts', session: S.session })).attempts;
+    const att = list.find(a => a.attemptId === S.attemptId);
+    if (!att) throw new Error('방금 본 시험을 찾지 못했어요. 잠시 후 다시 눌러 주세요.');
+    openTranscribe(att, blobs, 'vDone');
+  } catch (e) { msg($('doneMsg'), 'bad', e.server ? e.message : (e.message || '서버에 연결할 수 없어요.')); }
+  b.disabled = false; b.textContent = '🎧 내 답변 듣고 직접 전사하기';
+};
 
 async function loadExam(setId) {
   msg($('setsMsg'), 'warn', '문항을 불러오는 중…');
@@ -1221,7 +1424,8 @@ async function finalize() {
     msg($('doneMsg'), 'bad', `${failed.length}개 답변을 보내지 못했습니다. 인터넷 연결을 확인하고 “다시 보내기”를 눌러 주세요.\n계속 실패하면 “기기에 저장”으로 파일을 저장해 선생님께 전달하세요.`);
   } else {
     $('doneSub').textContent = '모든 답변이 제출되었습니다. 수고했어요!';
-    msg($('doneMsg'), 'ok', '✓ 제출 완료. 이제 창을 닫아도 됩니다.');
+    msg($('doneMsg'), 'ok', '✓ 제출 완료. 이제 창을 닫아도 됩니다.\n시간이 있으면 아래 버튼으로 내 답변을 다시 들으며 직접 전사해 보세요.');
+    vis('btnTranscribe', true);
     window.onbeforeunload = null;
     try { A.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
   }

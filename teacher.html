@@ -1057,6 +1057,7 @@ function answerCard(x) {
     <div class="qtext">${esc(x.question)}</div>
     <div class="row" style="margin-top:6px"><button class="plain" data-listen>▶ 학생 녹음 듣기</button></div><div data-player></div>
     <label class="f">AI 전사 <span class="who ref">교사 참고</span></label><div class="tbox" data-tr>${x.aiTranscript ? esc(x.aiTranscript) : '<span class="hint">아직 없음</span>'}</div>
+    ${String(x.selfTranscript || '').trim() ? `<label class="f">학생 직접 전사 <span class="who ref">학생이 녹음을 듣고 적음${x.selfAt ? ' · ' + esc(x.selfAt) : ''}</span></label><div class="tbox">${esc(x.selfTranscript)}</div>` : ''}
     <details data-notesw ${x.aiNotes ? '' : 'class="hidden"'}><summary>AI 메모 (교사 참고)</summary><div class="tbox" style="margin-top:6px" data-notes>${esc(x.aiNotes)}</div></details>
     <div class="fbfields">
       <div class="fbh">학생에게 줄 피드백 <span class="who out">학생에게 전달됨</span></div>
