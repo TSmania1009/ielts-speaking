@@ -86,7 +86,7 @@
 <script>
 /* ===== 설정 (서버 연결은 api-client.js — 자료는 학교 NAS에 저장) ===== */
 const RECORD_SECONDS = 5;
-const TARGET_RATE = 16000;   // 16kHz 모노 WAV
+const TARGET_RATE = 24000;   // 24kHz 모노 WAV (exam.html과 같게)
 
 /* ===== 기기/브라우저 판별 ===== */
 const UA = navigator.userAgent;
@@ -138,7 +138,7 @@ async function ping() {
   }
 }
 
-/* ===== 3. 녹음 (Web Audio → 16kHz 모노 WAV) ===== */
+/* ===== 3. 녹음 (Web Audio → 24kHz 모노 WAV) ===== */
 let ctx, stream, source, processor, chunks = [], wavBlob = null, peak = 0, recRate = 48000;
 
 function permissionHelp() {
@@ -168,7 +168,7 @@ async function startRecording() {
   ctx = new AC();
   try {
     if (ctx.state === 'suspended') await ctx.resume();
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });   // exam.html과 같게
   } catch (e) {
     showMsg($('recMsg'), 'bad', explainError(e));
     cleanup(); $('btnRecord').disabled = false; return;
@@ -224,14 +224,23 @@ function mergeChunks(list) {
   return out;
 }
 
+/* 다운샘플링: 블랙먼 창 sinc 저역 필터 (exam.html과 같은 코드) */
 function downsample(buf, from, to) {
   if (to >= from) return buf;
-  const ratio = from / to, outLen = Math.floor(buf.length / ratio), out = new Float32Array(outLen);
-  let pos = 0;
-  for (let i = 0; i < outLen; i++) {
-    const end = Math.floor((i + 1) * ratio); let sum = 0, n = 0;
-    for (; pos < end && pos < buf.length; pos++) { sum += buf[pos]; n++; }
-    out[i] = n ? sum / n : 0;
+  const ratio = from / to, fc = 0.46 / ratio, H = Math.ceil(24 * ratio), P = 64, L = 2 * H * P;
+  const tab = new Float32Array(L + 1);
+  for (let k = 0; k <= L; k++) {
+    const d = k / P - H, x = Math.PI * 2 * fc * d;
+    tab[k] = 2 * fc * (d === 0 ? 1 : Math.sin(x) / x) * (0.42 + 0.5 * Math.cos(Math.PI * d / H) + 0.08 * Math.cos(2 * Math.PI * d / H));
+  }
+  let dc = 0; for (let k = 0; k <= L; k += P) dc += tab[k];
+  for (let k = 0; k <= L; k++) tab[k] /= dc;
+  const n = Math.floor(buf.length / ratio), out = new Float32Array(n), last = buf.length - 1;
+  for (let i = 0; i < n; i++) {
+    const t = i * ratio, j0 = Math.max(0, Math.ceil(t - H)), j1 = Math.min(last, Math.floor(t + H));
+    let s = 0;
+    for (let j = j0, k = Math.round((j0 - t + H) * P); j <= j1; j++, k += P) s += buf[j] * tab[k];
+    out[i] = s;
   }
   return out;
 }

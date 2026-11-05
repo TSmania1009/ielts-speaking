@@ -697,7 +697,7 @@ const REC = { ctx: null, stream: null, proc: null, active: false, chunks: [], ow
 async function startRecording(owner, bar, timeEl) {
   const AC = window.AudioContext || window.webkitAudioContext;
   REC.ctx = new AC(); if (REC.ctx.state === 'suspended') await REC.ctx.resume();
-  REC.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+  REC.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
   const src = REC.ctx.createMediaStreamSource(REC.stream);
   REC.proc = REC.ctx.createScriptProcessor(4096, 1, 1); REC.chunks = [];
   REC.proc.onaudioprocess = ev => {
@@ -724,10 +724,24 @@ function trimSilence(s) {
   while (b > a && Math.abs(s[b]) < th) b--;
   return b <= a ? s : s.slice(Math.max(0, a - pad), Math.min(s.length, b + pad));
 }
+/* 다운샘플링: 블랙먼 창 sinc 저역 필터 (exam.html과 같은 코드) */
 function downsample(buf, from, to) {
   if (to >= from) return buf;
-  const r = from / to, n = Math.floor(buf.length / r), out = new Float32Array(n); let pos = 0;
-  for (let i = 0; i < n; i++) { const end = Math.floor((i + 1) * r); let s = 0, c = 0; for (; pos < end && pos < buf.length; pos++) { s += buf[pos]; c++; } out[i] = c ? s / c : 0; }
+  const ratio = from / to, fc = 0.46 / ratio, H = Math.ceil(24 * ratio), P = 64, L = 2 * H * P;
+  const tab = new Float32Array(L + 1);
+  for (let k = 0; k <= L; k++) {
+    const d = k / P - H, x = Math.PI * 2 * fc * d;
+    tab[k] = 2 * fc * (d === 0 ? 1 : Math.sin(x) / x) * (0.42 + 0.5 * Math.cos(Math.PI * d / H) + 0.08 * Math.cos(2 * Math.PI * d / H));
+  }
+  let dc = 0; for (let k = 0; k <= L; k += P) dc += tab[k];
+  for (let k = 0; k <= L; k++) tab[k] /= dc;
+  const n = Math.floor(buf.length / ratio), out = new Float32Array(n), last = buf.length - 1;
+  for (let i = 0; i < n; i++) {
+    const t = i * ratio, j0 = Math.max(0, Math.ceil(t - H)), j1 = Math.min(last, Math.floor(t + H));
+    let s = 0;
+    for (let j = j0, k = Math.round((j0 - t + H) * P); j <= j1; j++, k += P) s += buf[j] * tab[k];
+    out[i] = s;
+  }
   return out;
 }
 function encodeWav(samples, rate) {
