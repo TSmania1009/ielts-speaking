@@ -166,6 +166,14 @@
   #wEditable mark { background:#D3F9D8; border-bottom: 1.5px dotted #2F9E44; cursor: help; color: inherit; border-radius: 2px; }
   #wEditable mark mark { background:#CFE8FB; border-bottom-color:#2E6DA4; } #wEditable mark mark mark { background:#EAD9F7; border-bottom-color:#8E44AD; }
   #wEditable .ai-flag { text-decoration: underline wavy #d92d20; text-underline-offset: 3px; cursor: pointer; }
+  /* 주석 입력 창: 선택한 원문 → 수정안 → 코멘트 */
+  .nd-back { position: fixed; inset: 0; background: rgba(22,20,112,.28); z-index: 8; display:flex; align-items:center; justify-content:center; padding: 16px; }
+  .nd { background:#fff; border-radius: 14px; border-top: 5px solid var(--gold); width: min(560px, 100%); max-height: calc(100vh - 32px); overflow:auto; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .nd label.f:first-of-type { margin-top: 10px; }
+  .nd .orig { background:#fff5f4; border:1px solid #f3c4bf; border-radius: 10px; padding: 10px 12px; font-size: 15px; white-space: pre-wrap; color:#5b2620; max-height: 30vh; overflow:auto; }
+  .nd textarea { font-size: 15px; min-height: 64px; }
+  .nd textarea[data-nfix] { background:#f0faf5; border-color:#cdebdc; }
+  .nd .actions { margin-top: 14px; }
   .ai-panel { margin-top: 14px; }
   .ai-sub { font-weight: 800; color: var(--navy); margin: 14px 0 8px; font-size: 14px; }
   .ai-sug { border:1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background:#fcfcff; }
@@ -1292,7 +1300,7 @@ function wgDetail(s) {
         <div><h3>2단계 English (직접 첨삭) <span class="hint" data-wc></span></h3>
           <div class="wtool"><button class="plain" data-cmd="bold"><b>B</b></button><button class="plain" data-cmd="underline"><u>U</u></button>
             <button class="ghost" data-note>💬 주석</button><button class="gold" data-ai>✨ AI 첨삭 제안 받기</button>${s.ai ? '<button class="plain" data-aiold>이전 AI 제안 보기</button>' : ''}</div>
-          <div class="hint" style="margin-bottom:6px">문장을 드래그해 ‘주석’을 누르면 초록 표시와 코멘트가 붙어요. 초록 부분을 누르면 수정·삭제할 수 있고, 빨간 물결은 아직 반영하지 않은 AI 제안이에요.</div>
+          <div class="hint" style="margin-bottom:6px">문장을 드래그해 ‘주석’을 누르면 고칠 문장과 코멘트를 넣는 창이 떠요. 초록 부분을 누르면 수정·삭제할 수 있고, 빨간 물결은 아직 반영하지 않은 AI 제안이에요.</div>
           <div id="wEditable" contenteditable="true">${eng}</div>
           <div class="ai-panel" data-aipanel></div></div>
       </div></div>
@@ -1365,24 +1373,71 @@ async function wgImageSelect(selId) {
 }
 
 /* 주석 달기 / 고치기 */
-function wgAddNote() {
+// 초록 표시(mark): 안의 글 = 고친 문장, title = 코멘트, data-orig = 학생이 쓴 원문(고친 경우에만)
+// 창: 선택한 원문(그대로 표시) → 어떻게 고칠지(처음엔 원문이 들어 있음) → 코멘트
+function wgNoteDialog({ orig, fix, note, isEdit }) {
+  return new Promise(done => {
+    const back = document.createElement('div'); back.className = 'nd-back';
+    back.innerHTML = `<div class="nd" role="dialog" aria-modal="true">
+      <h2>💬 ${isEdit ? '주석 고치기' : '주석 달기'}</h2>
+      <label class="f">선택한 부분 (학생이 쓴 원문)</label><div class="orig" data-norig></div>
+      <label class="f">이렇게 고쳐요 <span class="hint">· 원문 그대로 두면 코멘트만 달려요</span></label><textarea data-nfix></textarea>
+      <label class="f">코멘트 <span class="hint">· 학생이 초록 부분을 누르면 보여요</span></label><textarea data-nnote placeholder="왜 고쳤는지, 무엇을 주의할지"></textarea>
+      <div class="actions">${isEdit ? '<button class="danger" data-ndel>표시 삭제</button>' : ''}<button class="plain" data-ncancel>취소</button><button class="gold" data-nok>${isEdit ? '저장' : '주석 달기'}</button></div>
+      <div class="hint" style="margin-top:6px">Ctrl+Enter 저장 · Esc 취소</div></div>`;
+    const g = n => back.querySelector(`[data-${n}]`);
+    g('norig').textContent = orig; g('nfix').value = fix; g('nnote').value = note || '';
+    const close = v => { back.remove(); document.removeEventListener('keydown', key, true); done(v); };
+    const ok = () => {
+      const f = g('nfix').value.trim(), n = g('nnote').value.trim();
+      if (!f) return toast('고칠 문장이 비어 있어요. 원문을 지우려면 표시를 삭제한 뒤 본문에서 직접 지우세요.', true);
+      if (f === orig.trim() && !n) return toast('문장을 고치거나 코멘트를 입력하세요.', true);
+      close({ fix: f, note: n });
+    };
+    const key = e => {
+      if (e.key === 'Escape') { e.preventDefault(); close(null); }
+      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ok(); }
+    };
+    document.addEventListener('keydown', key, true);
+    g('nok').onclick = ok; g('ncancel').onclick = () => close(null);
+    if (g('ndel')) g('ndel').onclick = () => close({ del: true });
+    back.onmousedown = e => { if (e.target === back) close(null); };
+    document.body.appendChild(back);
+    ['nfix', 'nnote'].forEach(n => { growT(g(n)); g(n).oninput = () => growT(g(n)); });
+    const t = g('nfix'); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+  });
+}
+async function wgAddNote() {
   const ed = $('wEditable'); const sel = window.getSelection();
-  if (!sel.rangeCount || !sel.toString().trim() || !ed.contains(sel.anchorNode)) return toast('먼저 영어 답안에서 첨삭할 부분을 드래그해 선택하세요.', true);
-  const note = prompt('코멘트를 입력하세요:'); if (note === null || !note.trim()) return;
-  const range = sel.getRangeAt(0); const mark = document.createElement('mark'); mark.title = note.trim();
-  try { range.surroundContents(mark); } catch (e) { mark.appendChild(range.extractContents()); range.insertNode(mark); }
-  sel.removeAllRanges(); wgAutosave();
+  if (!sel.rangeCount || !sel.toString().trim() || !ed.contains(sel.anchorNode) || !ed.contains(sel.focusNode)) return toast('먼저 영어 답안에서 첨삭할 부분을 드래그해 선택하세요.', true);
+  const range = sel.getRangeAt(0).cloneRange(), orig = sel.toString();   // 창에 입력하는 동안 선택이 풀리므로 미리 저장
+  const r = await wgNoteDialog({ orig, fix: orig.trim(), note: '' });
+  if (!r) return;
+  const mark = document.createElement('mark'); if (r.note) mark.title = r.note;
+  if (r.fix !== orig.trim()) { mark.dataset.orig = orig.trim(); range.deleteContents(); mark.textContent = r.fix; range.insertNode(mark); }
+  else { try { range.surroundContents(mark); } catch (e) { mark.appendChild(range.extractContents()); range.insertNode(mark); } }
+  window.getSelection().removeAllRanges(); wc_(); wgAutosave();
+}
+function wc_() { const ed = $('wEditable'), w = document.querySelector('#wgDetail [data-wc]'); if (ed && w) w.textContent = `· ${countW(ed.innerText)} words`; }
+async function wgEditNote(m) {
+  const cur = m.textContent, orig = m.dataset.orig || cur;
+  const r = await wgNoteDialog({ orig, fix: cur, note: m.title || '', isEdit: true });
+  if (!r) return;
+  if (r.del) {   // 표시 삭제: 고친 문장이었으면 원문으로 되돌림
+    const p = m.parentNode;
+    if (m.dataset.orig) p.replaceChild(document.createTextNode(m.dataset.orig), m);
+    else { while (m.firstChild) p.insertBefore(m.firstChild, m); p.removeChild(m); }
+  } else {
+    if (r.fix !== cur) m.textContent = r.fix;
+    if (r.fix !== orig.trim()) m.dataset.orig = orig.trim(); else delete m.dataset.orig;
+    if (r.note) m.title = r.note; else m.removeAttribute('title');
+  }
+  wc_(); wgAutosave();
 }
 document.addEventListener('click', e => {
   const ed = $('wEditable'); if (!ed) return;
   const m = e.target.closest('mark');
-  if (m && ed.contains(m)) {
-    e.preventDefault();
-    const v = prompt('코멘트를 수정하세요. (모두 지우고 확인을 누르면 표시가 삭제돼요)', m.title || '');
-    if (v === null) return;
-    if (!v.trim()) { const p = m.parentNode; while (m.firstChild) p.insertBefore(m.firstChild, m); p.removeChild(m); } else m.title = v.trim();
-    wgAutosave(); return;
-  }
+  if (m && ed.contains(m)) { e.preventDefault(); wgEditNote(m); return; }
   const f = e.target.closest('.ai-flag');
   if (f && ed.contains(f)) { const c = document.querySelector(`[data-vi="${f.dataset.idx}"]`); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 });
@@ -1433,7 +1488,7 @@ function wgRenderAi() {
     const i = +b.dataset.va, txt = panel.querySelector(`[data-vs="${i}"]`).value.trim(), why = panel.querySelector(`[data-vr="${i}"]`).value.trim();
     if (!txt) return toast('적용할 내용이 비어 있어요.', true);
     const f = document.querySelector(`#wEditable .ai-flag[data-idx="${i}"]`);
-    if (f) { const m = document.createElement('mark'); m.title = why; m.textContent = txt; f.parentNode.replaceChild(m, f); }
+    if (f) { const m = document.createElement('mark'); if (why) m.title = why; if (txt !== f.textContent.trim()) m.dataset.orig = f.textContent.trim(); m.textContent = txt; f.parentNode.replaceChild(m, f); }
     else toast('본문에서 원문을 찾지 못해 적용하지 못했어요. 직접 고쳐 주세요.', true);
     WT.vocab[i] = null; wgRenderAi(); wgAutosave();
   });

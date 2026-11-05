@@ -111,7 +111,7 @@
   .legend { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
   .legend span.k { background:#D3F9D8; padding: 0 5px; border-radius: 3px; } .legend span.k2 { background:#CFE8FB; padding: 0 5px; border-radius: 3px; }
   .note { position: relative; background: var(--navy); color:#fff; border-left: 5px solid var(--gold); border-radius: 12px; padding: 14px 16px; margin-top: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
-  .note .q { color: var(--gold-2); font-weight: 700; margin-bottom: 4px; } .note button { float:right; padding: 4px 10px; font-size: 13px; background: rgba(255,255,255,.15); }
+  .note .q { color: var(--gold-2); font-weight: 700; margin-bottom: 4px; } .note .q .was { color:#ffb4ab; text-decoration: line-through; font-weight: 500; } .note button { float:right; padding: 4px 10px; font-size: 13px; background: rgba(255,255,255,.15); }
   .clist { margin: 0; padding-left: 0; list-style: none; counter-reset: c; }
   .clist li { counter-increment: c; padding: 10px 12px 10px 44px; position: relative; background: var(--gold-soft); border:1px solid #f3dc8f; border-radius: 10px; margin-bottom: 8px; }
   .clist li::before { content: counter(c); position:absolute; left: 12px; top: 10px; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: var(--navy); font-weight: 800; font-size: 13px; display:grid; place-items:center; }
@@ -647,7 +647,7 @@ function sanitize(html) {   // 선생님 첨삭 HTML에서 표시용 태그만 �
     [...node.childNodes].forEach(ch => {
       if (ch.nodeType === 1) {
         if (!ok[ch.tagName]) { walk(ch); while (ch.firstChild) node.insertBefore(ch.firstChild, ch); node.removeChild(ch); return; }
-        [...ch.attributes].forEach(at => { if (at.name !== 'title' && !(at.name === 'class' && /^(ai-applied|ai-flag)$/.test(at.value))) ch.removeAttribute(at.name); });
+        [...ch.attributes].forEach(at => { if (at.name !== 'title' && !(ch.tagName === 'MARK' && at.name === 'data-orig') && !(at.name === 'class' && /^(ai-applied|ai-flag)$/.test(at.value))) ch.removeAttribute(at.name); });
         walk(ch);
       } else if (ch.nodeType !== 3) node.removeChild(ch);
     });
@@ -683,7 +683,9 @@ async function openDetail(id) {
 document.addEventListener('click', e => {
   const m = e.target.closest('#fbArea mark, #fbArea .ai-applied');
   if (!m) return;
-  $('noteQ').textContent = `"${m.textContent}"`;
+  const orig = m.getAttribute('data-orig');   // 선생님이 고친 문장이면 원문 → 고친 문장
+  $('noteQ').innerHTML = orig && orig !== m.textContent
+    ? `<span class="was">${esc(orig)}</span> → ${esc(m.textContent)}` : esc(`"${m.textContent}"`);
   $('noteT').textContent = m.getAttribute('title') || '(별도로 남긴 코멘트가 없어요)';
   vis('noteBox', true); e.stopPropagation();
 });
