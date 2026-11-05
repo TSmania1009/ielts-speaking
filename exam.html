@@ -154,6 +154,12 @@
   .fbsec.fix { background: var(--gold-soft); border-color: #f3dc8f; } .fbsec.fix h3 { color: var(--gold-ink); } .fbsec.fix .ic { background: var(--gold); color: var(--navy); }
   .fbsec.say { background: var(--navy-soft); border-color: #d4d2f3; } .fbsec.say h3 { color: var(--navy); } .fbsec.say .ic { background: var(--navy); }
   .fbsec.plain { grid-column: 1 / -1; }
+  .model { margin-top: 14px; border-radius: 12px; padding: 14px 16px 16px; border: 1px solid #d4d2f3; background: #fff; }
+  .model h3 { margin: 0 0 8px; font-size: 15px; color: var(--navy); display:flex; align-items:baseline; gap: 8px; flex-wrap: wrap; }
+  .model h3 small { font-size: 12px; font-weight: 600; color: var(--muted, #6b6f86); }
+  .model .body { white-space: pre-wrap; font-size: 15px; line-height: 1.8; }
+  .model .expr { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #d4d2f3; }
+  .model .expr b { font-size: 14px; color: var(--navy); }
   @media (max-width: 1000px) { .fbgrid { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .brand span, .topnav .who { display:none; } .topnav img { height: 38px; } .modes a { padding: 6px 10px; } }
   .rgrid .card { margin: 0; }
@@ -568,6 +574,14 @@ function feedbackHtml(text) {
   FB_SECTIONS.forEach(s => { if (clean(parts[s.key])) html += `<div class="fbsec ${s.key}"><h3><span class="ic">${s.ic}</span>${s.title}</h3><div class="body">${escapeHtml(clean(parts[s.key]))}</div></div>`; });
   return `<div class="fbgrid">${html}</div>`;
 }
+/* 공통 모범 답안 (선생님이 차수별로 공개한 Band 7 수준 예시) — '핵심 표현:' 줄부터는 표현 정리로 따로 */
+function modelHtml(text) {
+  text = String(text || '').trim(); if (!text) return '';
+  const m = text.match(/^([\s\S]*?)\n\s*핵심\s*표현\s*[:：]\s*\n?([\s\S]*)$/);
+  const ans = m ? m[1].trim() : text, ex = m ? m[2].trim() : '';
+  return `<div class="model"><h3>📘 모범 답안 <small>IELTS Band 7 수준 예시 · 같은 시험을 본 친구들 모두 같은 답안이에요</small></h3>
+    <div class="body">${escapeHtml(ans)}</div>${ex ? `<div class="expr"><b>핵심 표현</b><div class="body">${escapeHtml(ex)}</div></div>` : ''}</div>`;
+}
 function openResult(i) {
   const r = RESULTS[i];
   $('resTitle').textContent = r.setTitle; $('resDate').textContent = r.date + ' 응시';
@@ -579,7 +593,8 @@ function openResult(i) {
         <div class="qtext">${escapeHtml(a.question)}</div>
         <button class="secondary" style="width:auto; margin:0; padding:10px 16px; font-size:14px">▶ 내 답변 듣기</button></div>
       <div data-p></div>
-      ${feedbackHtml(a.feedback)}`;
+      ${feedbackHtml(a.feedback)}
+      ${modelHtml(a.model)}`;
     const btn = el.querySelector('button');
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = '불러오는 중…';

@@ -247,13 +247,14 @@
           <option value="">전체 상태</option><option>미채점</option><option>AI 초안</option><option>검토 중</option><option>공개</option><option value="__hidden">🙈 숨김</option></select>
           <input type="text" id="gQ" placeholder="이름·학번·이메일 검색" style="width:180px"></div>
         <div class="row"><div class="seg" id="gView"><button data-v="list">목록</button><button data-v="student">학생별</button><button data-v="set">차수별</button></div>
-          <label class="switch"><input type="checkbox" id="gAll"> 모두 선택</label><button class="plain" id="gReload">새로고침</button></div>
+          <label class="switch"><input type="checkbox" id="gAll"> 모두 선택</label><button class="ghost" id="gCommonBtn">📘 공통 피드백</button><button class="plain" id="gReload">새로고침</button></div>
       </div>
       <div class="hint" id="gCount" style="margin: 0 0 10px"></div>
       <div id="gRows" class="alist"></div>
       <div class="delbar hidden" id="gDelBar"><span id="gDelCount"></span><div class="row"><button class="ghost" id="gHide">🙈 목록에서 숨기기</button><button class="danger" id="gDel">완전히 삭제</button></div></div>
     </div>
     <div id="gDetail" class="hidden"></div>
+    <div id="gCommon" class="hidden"></div>
    </div>
    <div id="tabGrowth" class="hidden">
     <div id="grList">
@@ -853,7 +854,72 @@ function renderAttempts() {
   renderGroups(box, groups, 'alist', 'g' + view);
 }
 initSeg('gView', 'ielts_gView', 'list', renderAttempts);
-function showList() { $('gList').classList.remove('hidden'); $('gDetail').classList.add('hidden'); }
+function showList() { $('gList').classList.remove('hidden'); $('gDetail').classList.add('hidden'); $('gCommon').classList.add('hidden'); }
+
+/* ---------- 공통 피드백: 차수별 Band 7 모범 답안 (같은 차수 학생 모두에게 같은 답안) ---------- */
+$('gCommonBtn').onclick = () => openCommon($('gSet').value || (SETS[0] || {}).id);
+async function openCommon(setId) {
+  if (!setId) return toast('차수가 없습니다.', true);
+  try { renderCommon(await apiGet({ action: 'tcommon', session: KEY, setId })); }
+  catch (e) { toast(e.message, true); }
+}
+function renderCommon(d) {
+  $('gList').classList.add('hidden'); $('gDetail').classList.add('hidden');
+  const box = $('gCommon'); box.classList.remove('hidden'); window.scrollTo(0, 0);
+  const s = d.set, qs = d.questions, empty = qs.filter(q => !String(q.modelAnswer || '').trim()).length;
+  box.innerHTML = `
+    <div class="row between" style="margin-bottom:12px"><button class="plain" data-back>← 목록</button>
+      <div class="row"><select data-set style="width:auto">${SETS.map(x => `<option value="${esc(x.id)}" ${x.id === s.id ? 'selected' : ''}>${esc(x.id)} · ${esc(x.title)}</option>`).join('')}</select>
+        <span class="pill ${s.published ? 'st-공개' : 'st-검토'}">${s.published ? '학생에게 공개 중' : '비공개'}</span></div></div>
+    <div class="card out-card"><div class="row between"><h2>📘 공통 피드백 · 모범 답안 (Band 7.0 수준)</h2><span class="who out">공개하면 학생에게 전달됨</span></div>
+      <p class="hint" style="margin:6px 0 0">이 차수에 응시한 학생 모두(현재 ${d.attempts}건)의 문항별 결과 아래에 같은 모범 답안이 보여요. 결과를 공개한 응시에만 보이고, 아래 ‘학생에게 공개’를 눌러야 나타나요.
+        AI에는 질문·큐카드만 보내요. 학생 채점에서 ‘AI 초안 만들기’를 하면 빈 문항의 모범 답안도 함께 만들어져요.</p>
+      <div class="row" style="margin-top:12px"><button data-ai ${empty ? '' : 'disabled'}>🤖 빈 문항 AI로 만들기${empty ? ` (${empty}개)` : ''}</button><span class="hint" data-prog></span></div>
+    </div>
+    <div data-qs></div>
+    <div class="card"><div class="actions"><button class="plain" data-save>임시 저장</button>
+      ${s.published ? '<button class="danger" data-unpub>공개 취소</button><button class="gold" data-pub>수정 내용 공개</button>' : '<button class="gold" data-pub>학생에게 공개</button>'}</div></div>`;
+  const f = n => box.querySelector(`[data-${n}]`);
+  if (!qs.length) f('qs').innerHTML = '<div class="card sub">이 차수에 문항이 없어요.</div>';
+  qs.forEach(q => {
+    const el = document.createElement('div'); el.className = 'card'; el.dataset.qid = q.qid;
+    el.innerHTML = `<div class="row between"><span class="tag">P${q.part}-${q.order}${q.part === 2 ? (q.longTurn ? ' · 큐카드' : ' · 후속') : ''}</span>
+        <button class="plain" data-one>🤖 ${String(q.modelAnswer || '').trim() ? '다시 만들기' : 'AI로 만들기'}</button></div>
+      <div class="qtext">${esc(q.text)}</div>${q.cue ? `<div class="cue">${esc(q.cue)}</div>` : ''}
+      <label class="f">모범 답안 <span class="hint">(아래 ‘핵심 표현:’ 줄 다음은 표현 정리로 따로 보여요)</span></label>
+      <textarea rows="${q.longTurn ? 12 : 6}" data-ma placeholder="비어 있으면 학생에게 이 문항의 모범 답안은 보이지 않아요.">${esc(q.modelAnswer || '')}</textarea>`;
+    const one = el.querySelector('[data-one]');
+    one.onclick = () => busy(one, 'AI 작성 중…', async () => {
+      const r = await apiPost({ action: 'commonAi', qid: q.qid });
+      el.querySelector('[data-ma]').value = r.modelAnswer; q.modelAnswer = r.modelAnswer; one.textContent = '🤖 다시 만들기';
+    });
+    f('qs').appendChild(el);
+  });
+  const items = () => [...f('qs').querySelectorAll('.card[data-qid]')].map(c => ({ qid: c.dataset.qid, modelAnswer: c.querySelector('[data-ma]').value }));
+  const save = async publish => { await apiPost({ action: 'commonSave', setId: s.id, items: items(), publish }); renderCommon(await apiGet({ action: 'tcommon', session: KEY, setId: s.id })); };
+  f('back').onclick = () => showList();
+  f('set').onchange = e => openCommon(e.target.value);
+  f('save').onclick = () => busy(f('save'), '저장 중…', async () => { await save(s.published); toast('저장했어요.'); });
+  f('pub').onclick = () => busy(f('pub'), '공개 중…', async () => { await save(true); toast('모범 답안을 학생에게 공개했어요.'); });
+  if (f('unpub')) f('unpub').onclick = () => busy(f('unpub'), '처리 중…', async () => { await save(false); toast('모범 답안 공개를 취소했어요.'); });
+  f('ai').onclick = () => busy(f('ai'), 'AI 작성 중…', async () => {
+    await apiPost({ action: 'commonSave', setId: s.id, items: items() });   // 고친 내용 먼저 저장
+    const n = await fillModelAnswers(s.id, f('prog'));
+    renderCommon(await apiGet({ action: 'tcommon', session: KEY, setId: s.id }));
+    toast(`모범 답안 ${n}개를 만들었어요. 검토 후 공개하세요.`);
+  });
+}
+/* 차수에서 모범 답안이 빈 문항만 AI로 채움 (만든 개수를 돌려줌) */
+async function fillModelAnswers(setId, prog) {
+  const d = await apiGet({ action: 'tcommon', session: KEY, setId });
+  const todo = d.questions.filter(q => !String(q.modelAnswer || '').trim());
+  for (let i = 0; i < todo.length; i++) {
+    if (prog) prog.textContent = `모범 답안 ${i + 1}/${todo.length} 작성 중… (P${todo[i].part}-${todo[i].order})`;
+    await apiPost({ action: 'commonAi', qid: todo[i].qid });
+  }
+  if (prog) prog.textContent = '';
+  return todo.length;
+}
 async function openAttempt(id) {
   try { const d = await apiGet({ action: 'tattempt', session: KEY, id }); renderDetail(d); }
   catch (e) { toast(e.message, true); }
@@ -866,18 +932,19 @@ function overallBand(arr) {
 
 function renderDetail(d) {
   GCUR = d; const a = d.attempt;
-  $('gList').classList.add('hidden'); const box = $('gDetail'); box.classList.remove('hidden'); window.scrollTo(0, 0);
+  $('gList').classList.add('hidden'); $('gCommon').classList.add('hidden'); const box = $('gDetail'); box.classList.remove('hidden'); window.scrollTo(0, 0);
   const hasDraft = d.answers.some(x => x.aiTranscript || x.aiNotes);
   box.innerHTML = `
     <div class="row between" style="margin-bottom:12px"><button class="plain" data-back>← 목록</button>
-      <div class="row"><button class="plain" data-hide></button><button class="ghost" data-growth>📈 이 학생 성장 기록</button><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></div></div>
+      <div class="row"><button class="plain" data-hide></button><button class="ghost" data-common>📘 이 차수 공통 피드백</button><button class="ghost" data-growth>📈 이 학생 성장 기록</button><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></div></div>
    <div class="gd"><div class="gd-main">
     <div class="card"><h2>${esc(a.name)} <span class="hint">${esc(a.sid || '')} ${esc(a.email || '')}</span></h2>
       <div class="hint">${esc(a.setTitle)} · ${esc(a.start)}${a.end ? ' ~ ' + esc(a.end.slice(11)) : ''} · ${esc(a.status || '')}</div>
       <div class="row" style="margin-top:12px"><button data-ai>🤖 AI 초안 ${hasDraft ? '다시 ' : ''}만들기</button>
         ${hasDraft ? '<label class="switch"><input type="checkbox" data-ow> 학생 피드백도 새 초안으로 덮어쓰기</label>' : ''}
         <span class="hint" data-prog></span></div>
-      <p class="hint" style="margin:8px 0 0">AI는 녹음과 질문만 받고, 이름·학번은 보내지 않습니다. 초안은 학생에게 바로 보이지 않아요. 검토 후 ‘학생에게 공개’를 눌러야 공개됩니다.</p>
+      <p class="hint" style="margin:8px 0 0">AI는 녹음과 질문만 받고, 이름·학번은 보내지 않습니다. 초안은 학생에게 바로 보이지 않아요. 검토 후 ‘학생에게 공개’를 눌러야 공개됩니다.
+        이 차수의 공통 모범 답안(Band 7.0)이 빈 문항은 함께 만들어지고, ‘📘 이 차수 공통 피드백’에서 따로 검토·공개해요.</p>
     </div>
     <div data-answers class="alist2"></div>
    </div><aside class="gd-side">
@@ -901,6 +968,7 @@ function renderDetail(d) {
   const paintHide = () => { f('hide').textContent = isHidden() ? '👁 목록에 다시 보이기' : '🙈 목록에서 숨기기'; };
   paintHide();
   f('hide').onclick = async () => { await busy(f('hide'), '바꾸는 중…', () => gSetHidden([a.attemptId], !isHidden())); paintHide(); };
+  f('common').onclick = () => openCommon(a.setId);
   f('growth').onclick = () => { const key = String(a.email || '').trim().toLowerCase() || 'sid:' + String(a.sid || '').trim(); switchTab('growth'); grOpen(key); };
   box.querySelectorAll('[data-band]').forEach(inp => inp.oninput = () => {
     if (inp.dataset.band !== 'overall') f('band="overall"').value = overallBand(['fc', 'lr', 'gra', 'p'].map(k => f(`band="${k}"`).value));
@@ -1003,7 +1071,10 @@ async function runAi(overwrite, prog) {
   }
   prog.textContent = '종합 평가 작성 중…';
   const d = await apiPost({ action: 'aiOverall', attemptId: a.attemptId, overwrite });
-  renderDetail(d); toast('AI 초안을 만들었어요. 검토 후 공개하세요.');
+  let made = 0;                                          // 이 차수의 공통 모범 답안 중 빈 문항도 함께 (같은 차수 학생 모두가 함께 씀)
+  try { made = await fillModelAnswers(a.setId, prog); }
+  catch (e) { toast('모범 답안은 만들지 못했어요: ' + e.message, true); }
+  renderDetail(d); toast(`AI 초안을 만들었어요.${made ? ` 이 차수 공통 모범 답안 ${made}개도 만들었어요 (📘 공통 피드백에서 검토·공개).` : ''} 검토 후 공개하세요.`);
 }
 function vis(id, on) { (typeof id === 'string' ? $(id) : id).classList.toggle('hidden', !on); }
 
@@ -1061,7 +1132,7 @@ function grRender() {
     const el = document.createElement('div'); el.className = 'card growth-row';
     const pc = s.growth === '공개' ? 'st-공개' : s.growth === '초안' ? 'st-검토' : 'st-미채점';
     el.innerHTML = `<div><b>${esc(s.name)}</b> <span class="hint">${esc(s.sid || '')} ${esc(s.email || '')}</span>
-        <div class="hint">Speaking 응시 ${s.count}회 · 채점 ${s.graded}회 · 공개 ${s.published}회 · Writing 제출 ${s.wCount || 0}건 · 피드백 ${s.wDone || 0}건 · 최근 ${esc(String(s.last).slice(0, 10))}</div></div>
+        <div class="hint">Speaking 응시 ${s.count}회 · 채점 ${s.graded}회 · 공개 ${s.published}회 · Writing 제출 ${s.wCount || 0}건 · 피드백 ${s.wDone || 0}건${s.excluded ? ` · 뺀 기록 ${s.excluded}건` : ''} · 최근 ${esc(String(s.last).slice(0, 10))}</div></div>
       <div style="text-align:right"><span class="pill ${pc}">성장 분석 ${esc(s.growth)}</span></div>`;
     el.onclick = () => grOpen(s.key);
     $('grRows').appendChild(el);
@@ -1072,7 +1143,9 @@ async function grOpen(key) {
   catch (e) { toast(e.message, true); }
 }
 function grDetail(d) {
-  GR.cur = d; const st = d.student, atts = d.attempts, g = d.growth, ws = d.wsubs || [];
+  GR.cur = d; const st = d.student, g = d.growth;
+  const atts = d.attempts.filter(a => !a.excluded), ws = (d.wsubs || []).filter(w => !w.excluded);   // 성장 기록에서 뺀 기록은 아래에 따로
+  const exA = d.attempts.filter(a => a.excluded), exW = (d.wsubs || []).filter(w => w.excluded);
   vis('grList', false); const box = $('grDetail'); box.classList.remove('hidden'); window.scrollTo(0, 0);
   const analyzed = atts.filter(a => a.analyzed).length;
   const wReady = ws.filter(w => w.done || num(w.bands.overall)).length;
@@ -1092,8 +1165,8 @@ function grDetail(d) {
     </div>
     <div class="card"><h2>응시 기록</h2>
       <div class="tscroll"><table class="gtable"><thead><tr><th>날짜</th><th>차수</th><th>상태</th><th class="n">FC</th><th class="n">LR</th><th class="n">GRA</th><th class="n">P</th><th class="n">전체</th>
-        <th class="n">Part 2</th><th class="n">P1·3 평균</th><th class="n">속도</th><th class="n">머뭇거림</th></tr></thead><tbody data-rows></tbody></table></div>
-      <p class="hint" style="margin:8px 0 0">줄을 누르면 그 응시의 채점 화면으로 이동해요.</p>
+        <th class="n">Part 2</th><th class="n">P1·3 평균</th><th class="n">속도</th><th class="n">머뭇거림</th><th></th></tr></thead><tbody data-rows></tbody></table></div>
+      <p class="hint" style="margin:8px 0 0">줄을 누르면 그 응시의 채점 화면으로 이동해요. 마이크 시험이나 중간에 끊긴 응시처럼 불필요한 기록은 ‘빼기’로 성장 기록에서 뺄 수 있어요.</p>
     </div>
     <div class="card"><h2>Writing 기록</h2>
       <div class="gsec-title">Writing Band 변화 <span class="who ref">교사 참고 · 학생에게 안 보임</span></div>
@@ -1101,13 +1174,21 @@ function grDetail(d) {
       <div class="gsec-title">작성 지표 <span class="hint" style="font-weight:600">(학생에게는 피드백을 전송한 글만 보여요 · Task 1과 2는 기준이 달라 따로 그려요)</span></div>
       <div class="charts" data-wmetrics></div>
       <div class="tscroll" style="margin-top:12px"><table class="gtable"><thead><tr><th>작성날짜</th><th>과제</th><th>Task · 유형</th><th>피드백</th><th class="n">TA/TR</th><th class="n">CC</th><th class="n">LR</th><th class="n">GRA</th><th class="n">전체</th>
-        <th class="n">단어수</th><th class="n">작성 시간</th></tr></thead><tbody data-wrows></tbody></table></div>
+        <th class="n">단어수</th><th class="n">작성 시간</th><th></th></tr></thead><tbody data-wrows></tbody></table></div>
       <p class="hint" style="margin:8px 0 0">줄을 누르면 그 글의 첨삭 화면으로 이동해요. 작성 시간은 학생 화면의 타이머 기준이에요.</p>
     </div>
+    ${exA.length || exW.length ? `<div class="card"><h2>성장 기록에서 뺀 기록 <span class="hint">${exA.length + exW.length}건</span></h2>
+      <p class="hint" style="margin:4px 0 8px">그래프·AI 성장 분석·학생의 성장 기록 화면에서 빠져 있어요. 채점·첨삭 기록과 학생 결과는 그대로 남아 있고, 언제든 되돌릴 수 있어요.</p>
+      <div class="tscroll"><table class="gtable"><tbody>
+        ${exA.map(a => `<tr><td>Speaking</td><td>${esc(String(a.date).slice(0, 16))}</td><td>${esc(a.setTitle)}</td><td><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></td>
+          <td class="n"><button class="plain" data-unex="speaking" data-id="${esc(a.attemptId)}">되돌리기</button></td></tr>`).join('')}
+        ${exW.map(w => `<tr><td>Writing</td><td>${esc(w.date)}</td><td>${esc(w.title || '자유 연습')} · ${esc(w.task)} ${esc(w.type)}</td><td>${w.words} words</td>
+          <td class="n"><button class="plain" data-unex="writing" data-id="${esc(w.id)}">되돌리기</button></td></tr>`).join('')}
+      </tbody></table></div></div>` : ''}
     <div class="gd"><div class="gd-main">
       <div class="card ref-card"><div class="row between"><h2>📋 AI 성장 분석 · 교사 참고용</h2><span class="who ref">학생에게 안 보임</span></div>
         <div class="row" style="margin-top:10px"><button data-ai ${canAi ? '' : 'disabled'}>🤖 AI 성장 분석 ${g ? '다시 ' : ''}만들기</button>
-          ${g ? '<label class="switch"><input type="checkbox" data-ow> 학생용 분석도 새 초안으로 덮어쓰기</label>' : ''}</div>
+          ${g ? '<label class="switch"><input type="checkbox" data-ow> 학생용 분석도 새 초안으로 덮어쓰기</label><button class="danger" data-gdel>🗑 성장 분석 삭제</button>' : ''}</div>
         <p class="hint" style="margin:8px 0 0">${canAi ? `Speaking은 AI 분석이 끝난 최근 응시(최대 6회), Writing은 첨삭이 끝난 최근 글(최대 6편)을 비교해요. 한쪽이 2건 미만이면 그쪽은 빼고 분석해요. 이름·학번은 보내지 않아요.` : 'Speaking 채점 탭에서 ‘AI 초안 만들기’를 마친 응시 2회 이상, 또는 Writing 첨삭(Band 입력·전송)을 마친 글 2편 이상이 있어야 해요.'}</p>
         ${g ? `<div class="hint" style="margin-top:10px">생성 ${esc(g.createdAt)} · 대상 ${esc(g.basedOn)}</div><div class="tbox" style="margin-top:6px">${esc(g.teacherText)}</div>` : ''}
       </div>
@@ -1128,9 +1209,10 @@ function grDetail(d) {
   const cell = v => `<td class="n">${v == null || v === '' ? '<span class="hint">–</span>' : esc(v)}</td>`;
   f('rows').innerHTML = atts.slice().reverse().map(a => `<tr data-id="${esc(a.attemptId)}"><td>${esc(String(a.date).slice(0, 16))}</td><td>${esc(a.setTitle)}</td>
       <td><span class="${pillCls(a.grade)}">${esc(a.grade)}</span></td>${cell(a.bands.fc)}${cell(a.bands.lr)}${cell(a.bands.gra)}${cell(a.bands.p)}${cell(a.bands.overall)}
-      ${cell(a.metrics.p2Sec == null ? null : a.metrics.p2Sec + '초')}${cell(a.metrics.p13AvgSec == null ? null : a.metrics.p13AvgSec + '초')}${cell(a.metrics.wpm)}${cell(a.metrics.fillersPerMin)}</tr>`).join('');
+      ${cell(a.metrics.p2Sec == null ? null : a.metrics.p2Sec + '초')}${cell(a.metrics.p13AvgSec == null ? null : a.metrics.p13AvgSec + '초')}${cell(a.metrics.wpm)}${cell(a.metrics.fillersPerMin)}
+      <td class="n"><button class="plain" data-ex="speaking" data-id="${esc(a.attemptId)}">빼기</button></td></tr>`).join('');
   f('rows').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => { switchTab('grade'); openAttempt(tr.dataset.id); });
-  if (!atts.length) f('rows').innerHTML = '<tr><td colspan="12" class="hint">Speaking 응시 기록이 없어요.</td></tr>';
+  if (!atts.length) f('rows').innerHTML = '<tr><td colspan="13" class="hint">Speaking 응시 기록이 없어요.</td></tr>';
   /* Writing */
   [['전체', 'overall'], ['TA/TR 과제 달성·응답', 'ta'], ['CC 일관성·응집성', 'cc'], ['LR 어휘', 'lr'], ['GRA 문법', 'gra']].forEach(([t, k]) =>
     f('wbands').appendChild(miniChart(t, ws.map(w => ({ label: wlab(w), tip: wtip(w), v: num(w.bands[k]) })), { min: 3, max: 9, digits: 1 })));
@@ -1140,8 +1222,20 @@ function grDetail(d) {
     .forEach(([t, list, val, u, dg]) => f('wmetrics').appendChild(miniChart(t, list.map(w => ({ label: wlab(w), tip: wtip(w), v: val(w) })), { unit: u, digits: dg, min: 0 })));
   f('wrows').innerHTML = ws.length ? ws.slice().reverse().map(w => `<tr data-wid="${esc(w.id)}"><td>${esc(w.date)}</td><td>${esc(w.title || '자유 연습')}</td><td>${esc(w.task)} · ${esc(w.type)}</td>
       <td><span class="pill ${w.done ? 'st-공개' : 'st-검토'}">${w.done ? '전송' : '미완료'}</span></td>${cell(w.bands.ta)}${cell(w.bands.cc)}${cell(w.bands.lr)}${cell(w.bands.gra)}${cell(w.bands.overall)}
-      ${cell(w.words)}${cell(w.totalSec ? wmmss(w.totalSec) : null)}</tr>`).join('') : '<tr><td colspan="11" class="hint">Writing 제출 기록이 없어요.</td></tr>';
+      ${cell(w.words)}${cell(w.totalSec ? wmmss(w.totalSec) : null)}
+      <td class="n"><button class="plain" data-ex="writing" data-id="${esc(w.id)}">빼기</button></td></tr>`).join('') : '<tr><td colspan="12" class="hint">Writing 제출 기록이 없어요.</td></tr>';
   f('wrows').querySelectorAll('tr[data-wid]').forEach(tr => { tr.style.cursor = 'pointer'; tr.onclick = () => { switchTab('wgrade'); wgOpen(tr.dataset.wid); }; });
+  /* 성장 기록에서 빼기 / 되돌리기 */
+  const setEx = (btn, exclude) => busy(btn, '…', async () => {
+    await apiPost({ action: 'tgrowthExclude', kind: btn.dataset.ex || btn.dataset.unex, ids: [btn.dataset.id], exclude });
+    toast(exclude ? '성장 기록에서 뺐어요. 아래 ‘뺀 기록’에서 되돌릴 수 있어요.' : '성장 기록에 다시 넣었어요.');
+    await grOpen(st.key);
+  });
+  box.querySelectorAll('[data-ex]').forEach(b => b.onclick = e => { e.stopPropagation(); setEx(b, true); });
+  box.querySelectorAll('[data-unex]').forEach(b => b.onclick = e => { e.stopPropagation(); setEx(b, false); });
+  if (f('gdel')) f('gdel').onclick = confirmTwice(f('gdel'), '학생 화면에서도 사라져요. 정말 삭제?', () => busy(f('gdel'), '삭제 중…', async () => {
+    await apiPost({ action: 'tgrowthDelete', key: st.key }); toast('성장 분석을 삭제했어요.'); await grOpen(st.key);
+  }));
   f('ai').onclick = () => busy(f('ai'), 'AI 분석 중… (30초~1분)', async () => {
     if (g) await apiPost({ action: 'tgrowthSave', key: st.key, studentText: f('stext').value, publish: g.published });   // 고친 내용 먼저 저장
     const r = await apiPost({ action: 'tgrowthAi', key: st.key, overwrite: f('ow') ? f('ow').checked : false });
