@@ -210,6 +210,29 @@
   .trctrl .speed button { width:auto; margin:0; padding: 6px 10px; font-size: 13px; background: transparent; color: var(--navy); border-radius: 7px; }
   .trctrl .speed button.on { background: var(--navy); color:#fff; }
   .trcard textarea { margin-top: 12px; font-size: 16px; line-height: 1.7; min-height: 120px; resize: vertical; }
+  .fixbox { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--gold-soft); border: 1px solid #f3dc8f; }
+  .fixhead { display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap; }
+  .fixhead b { color: var(--gold-ink); font-size: 15px; }
+  .fixhint { font-size: 13px; color: var(--gold-ink); margin: 6px 0 0; }
+  .fixbox textarea { margin-top: 10px; background:#fff; }
+  .diff { margin-top: 10px; background:#fff; border:1px solid #f3dc8f; border-radius: 10px; padding: 10px 12px; font-size: 15px; line-height: 1.9; }
+  .diff > b { font-size: 13px; color: var(--gold-ink); } .diff > small { font-size: 12px; color: var(--muted); }
+  .diff del { color: var(--bad); background: var(--bad-soft); text-decoration-thickness: 2px; border-radius: 3px; padding: 0 2px; }
+  .diff del.soft { color: var(--muted); background: transparent; }
+  .diff ins { color: var(--ok); background: var(--ok-soft); text-decoration: none; font-weight: 700; border-radius: 3px; padding: 0 2px; }
+  /* 파트별 연습 */
+  .ptabs { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .ptabs button { margin:0; background:#fff; color: var(--navy); border:1.5px solid var(--line); font-size: 18px; padding: 14px 10px; }
+  .ptabs button small { display:block; font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  .ptabs button:hover { background: var(--navy-soft); }
+  .ptabs button.on { background: var(--navy); border-color: var(--navy); color:#fff; } .ptabs button.on small { color: var(--gold-2); }
+  @media (max-width: 600px) { .ptabs button { font-size: 15px; padding: 10px 6px; } .ptabs button small { display:none; } }
+  .take { display:flex; align-items:center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .take:last-child { border-bottom: 0; }
+  .take b { font-size: 14px; color: var(--navy); min-width: 92px; }
+  .take audio { flex: 1 1 240px; margin: 0; min-width: 0; }
+  .take a { font-size: 13px; color: var(--navy-2); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .take.latest b::after { content: ' · 최신'; color: var(--ok); }
   .trfoot { display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--muted); }
 
   @media (max-width: 900px) {
@@ -262,6 +285,7 @@
         <h2>응시할 모의고사</h2>
         <div class="setlist" id="setList"></div>
         <div id="setsMsg" class="msg hidden"></div>
+        <button class="secondary" id="btnPractice" style="margin-top:14px">🎯 파트별 연습하기 <small style="font-weight:500">— 지난 모의고사 문제로 원할 때 언제든</small></button>
       </div>
       <div class="card">
         <h2>내 결과</h2>
@@ -291,12 +315,58 @@
           <li>잘 안 들리는 곳은 <b>(...)</b>로 표시해요.</li>
           <li>글 쓰는 칸에서 <kbd>Esc</kbd>를 누르면 재생/일시정지돼요. 다시 재생하면 2초 앞에서부터 들려줘요.</li>
           <li>잘 안 들리면 <b>0.75×</b>로 느리게 들어 보세요. 적는 대로 자동 저장돼요.</li>
-          <li>다 적은 뒤 처음부터 읽어 보며 <b>문법 실수와 더 좋은 표현</b>을 찾아보세요.</li>
+          <li>다 적은 뒤 아래 <b>✏️ 스스로 고쳐 쓰기</b> 칸에서 문법 실수를 고치고 더 좋은 표현으로 바꿔 써 보세요. 바꾼 부분이 색으로 표시돼요.</li>
         </ul>
       </details>
     </div>
     <div class="trprog"><span id="trCount"></span><div class="bar"><div id="trBar"></div></div></div>
     <div id="trAnswers" class="rgrid"></div>
+  </section>
+
+  <!-- 파트별 연습: 고르기 -->
+  <section id="vPrPick" class="hidden">
+    <button class="secondary back" id="btnPrBack">← 돌아가기</button>
+    <h1>파트별 연습</h1>
+    <p class="sub">지난 모의고사에 나온 문제로 원하는 Part만 골라 실제 시험처럼 연습해요. 연습 녹음은 <b>이 기기에서만</b> 들을 수 있고 선생님께 제출되지 않아요.</p>
+    <div class="ptabs" id="prTabs">
+      <button data-part="1">Part 1<small>일상 질문 · 문항당 30초</small></button>
+      <button data-part="2">Part 2<small>큐카드 · 1분 준비 + 2분 말하기</small></button>
+      <button data-part="3">Part 3<small>심화 토론 · 문항당 2분</small></button>
+    </div>
+    <div class="card">
+      <button class="gold mini" id="btnPrRandom" style="margin:0 0 14px">🎲 아무 문제나 하나 고르기</button>
+      <div class="setlist" id="prList"><p class="empty">불러오는 중…</p></div>
+      <div id="prMsg" class="msg hidden"></div>
+    </div>
+  </section>
+
+  <!-- 파트별 연습: 문항마다 내 녹음 듣기 -->
+  <section id="vPrRev" class="hidden">
+    <div class="topbar"><span id="prRevLabel"></span></div>
+    <div class="card">
+      <div class="rhead"><span class="tagq" id="prRevTag"></span><div class="qtext" id="prRevQ"></div></div>
+      <div id="prRevCue" class="cue hidden" style="margin-top:12px"></div>
+      <h2 style="margin-top:18px">🎧 내 답변 들어보기</h2>
+      <div id="prRevTakes"></div>
+      <div id="prRevWarn" class="msg warn hidden"></div>
+      <div class="grid2" style="gap:12px">
+        <button class="secondary" id="btnPrRedo">🔁 이 문항 다시 답하기</button>
+        <button class="gold" id="btnPrNext">다음 문항 →</button>
+      </div>
+      <button class="secondary mini" id="btnPrStop" style="margin-top:12px">연습 그만하고 정리 보기</button>
+    </div>
+  </section>
+
+  <!-- 파트별 연습: 정리 -->
+  <section id="vPrDone" class="hidden">
+    <h1>연습 끝!</h1>
+    <p class="sub" id="prDoneSub"></p>
+    <div id="prDoneList" class="rgrid"></div>
+    <div class="grid2" style="gap:12px; margin-top:16px">
+      <button class="secondary" id="btnPrAgain">🔁 같은 문제 다시 연습</button>
+      <button class="gold" id="btnPrOther">🎯 다른 문제 고르기</button>
+    </div>
+    <button class="secondary" id="btnPrHome">처음 화면으로</button>
   </section>
 
   <!-- 결과 보기 -->
@@ -318,13 +388,14 @@
 
   <!-- 3. 안내 + 마이크 확인 -->
   <section id="vReady" class="hidden">
+    <button class="secondary back hidden" id="btnReadyBack">← 다른 문제 고르기</button>
     <h1 id="setTitle"></h1>
     <p class="sub">시작 전에 안내를 읽고 마이크를 확인하세요.</p>
     <div class="grid2">
       <div class="card">
         <h2>시작 전 안내</h2>
         <div id="guide" style="white-space:pre-line"></div>
-        <ul style="padding-left:18px; margin: 12px 0 0; color: var(--muted); font-size: 15px">
+        <ul id="readyTips" style="padding-left:18px; margin: 12px 0 0; color: var(--muted); font-size: 15px">
           <li>질문을 들은 뒤 <b>“삐”</b> 소리가 나면 녹음이 시작됩니다.</li>
           <li>일찍 끝나면 <b>답변 종료</b>를 눌러 다음 문항으로 넘어갈 수 있어요.</li>
           <li>Part 2는 1분 준비(메모 가능) 후 최대 2분 동안 말합니다.</li>
@@ -341,6 +412,7 @@
             <b style="color:var(--navy)">시험 화면 설정</b>
             <label class="chk"><input type="checkbox" id="optExaminer" checked> 면접관 화면 보기 <small>— 답변하는 동안 고개를 끄덕이며 들어요</small></label>
             <label class="chk"><input type="checkbox" id="optSelf"> 내 얼굴 보기 <small>— 카메라 사용, 녹화·저장되지 않아요</small></label>
+            <label class="chk hidden" id="optTextWrap"><input type="checkbox" id="optText"> 질문 글자 보기 <small>— 끄면 실제 시험처럼 듣기만 해요 (Part 2 큐카드는 항상 보여요)</small></label>
             <div id="optMsg" class="msg hidden"></div>
             <div id="previewSlot">
               <div class="stage hidden" id="stage">
@@ -463,7 +535,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 function show(view) {
-  ['vLoading', 'vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone', 'vResult', 'vGrowth', 'vTr'].forEach(v => $(v).classList.toggle('hidden', v !== view));
+  ['vLoading', 'vLogin', 'vSets', 'vReady', 'vPart', 'vQ', 'vDone', 'vResult', 'vGrowth', 'vTr', 'vPrPick', 'vPrRev', 'vPrDone'].forEach(v => $(v).classList.toggle('hidden', v !== view));
   window.scrollTo(0, 0);
 }
 function msg(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text; }
@@ -801,8 +873,9 @@ async function loadTrList() {
     box.innerHTML = TR.list.length ? '' : '<p class="empty">아직 제출한 Speaking 답변이 없어요. 모의고사를 보면 여기에서 전사할 수 있어요.</p>';
     TR.list.forEach(a => {
       const done = a.answers.filter(x => String(x.selfTranscript || '').trim()).length, n = a.answers.length;
+      const fixed = a.answers.filter(x => String(x.selfFixed || '').trim()).length;
       const b = document.createElement('button');
-      b.innerHTML = `${escapeHtml(a.setTitle)}<small>${escapeHtml(String(a.date).slice(0, 16))} 응시 · ${done === n ? '✓ 전사 완료' : `전사 ${done}/${n}`}</small>`;
+      b.innerHTML = `${escapeHtml(a.setTitle)}<small>${escapeHtml(String(a.date).slice(0, 16))} 응시 · ${done === n ? '✓ 전사 완료' : `전사 ${done}/${n}`}${fixed ? ` · 고쳐 쓰기 ${fixed}` : ''}</small>`;
       if (done === n) b.style.borderLeftColor = 'var(--ok)';
       b.onclick = () => openTranscribe(a, null, 'vSets');
       box.appendChild(b);
@@ -817,8 +890,30 @@ function trStats(text, sec) {
   if (words && sec >= 5) s.push(`분당 약 ${Math.round(words / (sec / 60))}단어`);
   return s.join(' · ');
 }
+/* 전사 ↔ 고쳐 쓰기 단어 비교 (최장 공통 부분열). 뺀 말은 <del>, 새로 쓴 말은 <ins> */
+function wordDiff(a, b) {
+  const A = String(a).trim().split(/\s+/).filter(Boolean), B = String(b).trim().split(/\s+/).filter(Boolean);
+  if (A.length * B.length > 400000) return escapeHtml(b);   // 너무 길면 비교하지 않음
+  // 대소문자·문장부호만 다른 것은 같은 말로 봄 (quiet → quiet. 은 고친 것으로 표시하지 않음)
+  const norm = w => w.toLowerCase().replace(/[^a-z0-9']/g, '') || w;
+  const NA = A.map(norm), NB = B.map(norm);
+  const n = A.length, m = B.length, L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    L[i][j] = NA[i] === NB[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (NA[i] === NB[j]) { out.push(escapeHtml(B[j])); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) { out.push(`<del>${escapeHtml(A[i])}</del>`); i++; }
+    else { out.push(`<ins>${escapeHtml(B[j])}</ins>`); j++; }
+  }
+  while (i < n) out.push(`<del>${escapeHtml(A[i++])}</del>`);
+  while (j < m) out.push(`<ins>${escapeHtml(B[j++])}</ins>`);
+  // um·uh만 뺀 것은 흐리게 (고친 것으로 보지 않음)
+  const filler = /^(?:u+m+|u+h+|e+r+m*|h+m+|a+h+)[,.]?$/i;
+  return out.join(' ').replace(/<del>([^<]*)<\/del>/g, (s, w) => filler.test(w) ? `<del class="soft">${w}</del>` : s);
+}
 function trProgress() {
-  const n = TR.cards.length, done = TR.cards.filter(c => c.saved.trim()).length;
+  const n = TR.cards.length, done = TR.cards.filter(c => c.done).length;
   $('trCount').textContent = `전사 ${done}/${n}`;
   $('trBar').style.width = (n ? done / n * 100 : 0) + '%';
 }
@@ -845,38 +940,65 @@ function trCard(att, a, localBlob) {
       <div class="speed">${[0.75, 1, 1.25].map(r => `<button data-rate="${r}" class="${r === 1 ? 'on' : ''}">${r}×</button>`).join('')}</div>
     </div>
     <textarea rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="들리는 그대로 영어로 적어 보세요. um, uh 같은 소리도 적어요."></textarea>
-    <div class="trfoot"><span data-stats></span><button class="secondary mini" data-save>저장</button></div>`;
+    <div class="trfoot"><span data-stats></span></div>
+    <div class="fixbox">
+      <div class="fixhead"><b>✏️ 스스로 고쳐 쓰기</b><button class="secondary mini" data-copy>전사 내용 가져오기</button></div>
+      <p class="fixhint">전사를 마쳤다면 다시 읽어 보며 문법 실수를 고치고, 더 자연스럽고 풍부한 표현으로 바꿔 써 보세요. um·uh는 빼고, 이유나 예시를 덧붙여도 좋아요.</p>
+      <textarea data-fix rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="고쳐 쓴 답변 (예: I very like it → I really like it)"></textarea>
+      <div class="diff hidden" data-diff></div>
+    </div>
+    <div class="trfoot"><span data-fstats></span><button class="secondary mini" data-save>저장</button></div>`;
   const f = n => el.querySelector(`[data-${n}]`);
-  const audio = el.querySelector('audio'), ta = el.querySelector('textarea'), sec = parseFloat(a.duration) || 0;
+  const audio = el.querySelector('audio'), ta = el.querySelector('textarea'), fx = f('fix'), sec = parseFloat(a.duration) || 0;
   const key = trKey(att.attemptId, a);
-  const c = { el, audio, saved: String(a.selfTranscript || ''), saving: null, timer: 0, failed: false, rate: 1 };
+  // saved: 서버에 저장된 값 { text: 전사, fixed: 고쳐 쓰기 }
+  const c = { el, audio, saved: { text: String(a.selfTranscript || ''), fixed: String(a.selfFixed || '') }, saving: null, timer: 0, failed: false, rate: 1 };
+  const cur = () => ({ text: ta.value, fixed: fx.value });
+  const same = (x, y) => x.text === y.text && x.fixed === y.fixed;
+  Object.defineProperty(c, 'done', { get: () => !!c.saved.text.trim() });
   // 저장 못 한 내용이 기기에 남아 있으면 되살림
-  const local = trLocal(key);
-  ta.value = local != null && local !== c.saved ? local : c.saved;
+  let local = null;
+  try { const raw = trLocal(key); if (raw != null) { local = JSON.parse(raw); if (typeof local !== 'object' || !local) local = { text: String(raw), fixed: c.saved.fixed }; } } catch (_) { local = { text: String(trLocal(key)), fixed: c.saved.fixed }; }
+  const restored = local && !same({ text: String(local.text || ''), fixed: String(local.fixed || '') }, c.saved);
+  ta.value = restored ? String(local.text || '') : c.saved.text;
+  fx.value = restored ? String(local.fixed || '') : c.saved.fixed;
   const state = (cls, text) => { const s = f('st'); s.className = 'trstate ' + cls; s.textContent = text; };
   const refresh = () => {
     f('stats').textContent = trStats(ta.value, sec);
+    f('fstats').textContent = fx.value.trim() ? trStats(fx.value, 0) : '';
+    const d = f('diff'), show = ta.value.trim() && fx.value.trim() && ta.value.trim() !== fx.value.trim();
+    vis(d, !!show); if (show) d.innerHTML = '<b>바꾼 부분</b> <small>빨간 줄 = 뺀 말, 초록 = 새로 쓴 말</small><div>' + wordDiff(ta.value, fx.value) + '</div>';
+    f('copy').textContent = fx.value.trim() ? '전사 내용 다시 가져오기' : '전사 내용 가져오기';
     if (c.saving) return;
-    if (ta.value === c.saved) state(c.saved.trim() ? 'ok' : '', c.saved.trim() ? '✓ 저장됨' : '');
+    if (same(cur(), c.saved)) state(c.saved.text.trim() || c.saved.fixed.trim() ? 'ok' : '', c.saved.fixed.trim() ? '✓ 전사·고쳐 쓰기 저장됨' : c.saved.text.trim() ? '✓ 저장됨' : '');
     else state(c.failed ? 'bad' : 'warn', c.failed ? '⚠ 저장 못 함 — 저장을 눌러 주세요' : '저장 전');
   };
-  if (local != null && local !== c.saved) { refresh(); state('warn', '저장 안 된 내용을 되살렸어요'); } else refresh();
+  refresh(); if (restored) state('warn', '저장 안 된 내용을 되살렸어요');
 
   c.save = async () => {
     clearTimeout(c.timer);
-    if (c.saving) { await c.saving; if (ta.value === c.saved) return; }
-    if (ta.value === c.saved) { refresh(); return; }
-    const text = ta.value;
+    if (c.saving) { await c.saving; if (same(cur(), c.saved)) return; }
+    if (same(cur(), c.saved)) { refresh(); return; }
+    const v = cur();
     state('', '저장 중…');
-    c.saving = apiPostRetry({ action: 'selfTranscript', session: S.session, attemptId: att.attemptId, part: a.part, order: a.order, text }, 3)
-      .then(() => { c.saved = text; c.failed = false; a.selfTranscript = text; if (ta.value === text) trLocal(key, null); })
+    c.saving = apiPostRetry({ action: 'selfTranscript', session: S.session, attemptId: att.attemptId, part: a.part, order: a.order, text: v.text, fixed: v.fixed }, 3)
+      .then(() => { c.saved = v; c.failed = false; a.selfTranscript = v.text; a.selfFixed = v.fixed; if (same(cur(), v)) trLocal(key, null); })
       .catch(e => { c.failed = true; c.error = e.server ? e.message : ''; })
       .finally(() => { c.saving = null; refresh(); if (c.failed && c.error) state('bad', '⚠ ' + c.error); trProgress(); });
     await c.saving;
   };
-  c.dirty = () => ta.value !== c.saved || !!c.saving;
-  ta.addEventListener('input', () => { trLocal(key, ta.value); c.failed = false; refresh(); clearTimeout(c.timer); c.timer = setTimeout(c.save, 2000); });
-  ta.addEventListener('blur', () => { if (ta.value !== c.saved) c.save(); });
+  c.dirty = () => !same(cur(), c.saved) || !!c.saving;
+  const onInput = () => { trLocal(key, JSON.stringify(cur())); c.failed = false; refresh(); clearTimeout(c.timer); c.timer = setTimeout(c.save, 2000); };
+  [ta, fx].forEach(t => {
+    t.addEventListener('input', onInput);
+    t.addEventListener('blur', () => { if (!same(cur(), c.saved)) c.save(); });
+  });
+  f('copy').onclick = () => {
+    if (!ta.value.trim()) { state('warn', '먼저 위 칸에 전사를 적어 주세요'); return; }
+    if (fx.value.trim() && !confirm('지금 고쳐 쓴 내용을 지우고 전사 내용으로 다시 시작할까요?')) return;
+    fx.value = ta.value.replace(TR_FILLER, '').replace(/\s{2,}/g, ' ').replace(/\s+([,.?!])/g, '$1').trim();   // um·uh는 빼고 가져옴
+    onInput(); fx.focus();
+  };
   f('save').onclick = () => c.save();
 
   // 녹음: 방금 본 시험이면 기기에 있는 파일, 아니면 서버에서 받음
@@ -901,13 +1023,13 @@ function trCard(att, a, localBlob) {
   });
   audio.addEventListener('play', () => TR.cards.forEach(o => { if (o !== c) try { o.audio.pause(); } catch (_) {} }));   // 한 번에 하나만
   // 글 쓰는 칸에서 Esc: 재생/일시정지 (다시 재생하면 2초 앞에서부터)
-  ta.addEventListener('keydown', async e => {
+  [ta, fx].forEach(t => t.addEventListener('keydown', async e => {
     if (e.key !== 'Escape' || e.isComposing) return;
     e.preventDefault();
     if (!(await c.loadAudio())) return;
     if (audio.paused) { if (audio.currentTime > 0 && !audio.ended) audio.currentTime = Math.max(0, audio.currentTime - 2); audio.play().catch(() => {}); }
     else audio.pause();
-  });
+  }));
   return c;
 }
 /* 돌아가기 전에 저장 안 된 내용을 모두 저장 */
@@ -950,7 +1072,7 @@ async function loadExam(setId) {
     $('guide').textContent = d.set.guide || '';
     if (S.questions.some(q => q.video)) loadYouTubeApi();
     prefetchVideos();   // 영상 파일은 시험 진행 중 뒤에서 받음
-    show('vReady');
+    showReady('exam');
   } catch (e) {
     msg($('setsMsg'), 'bad', (e.server || /질문 음성/.test(e.message)) ? e.message + ' 다시 눌러 주세요.' : '문항을 불러오지 못했습니다. 다시 눌러 주세요.');
   }
@@ -1253,7 +1375,8 @@ $('btnMic').onclick = async () => {
   $('btnMic').disabled = true;
 
   try {
-    await initAudio();
+    if (!A.ctx) await initAudio();                 // 연습을 여러 번 해도 마이크 연결은 한 번만
+    else { if (A.ctx.state === 'suspended') await A.ctx.resume(); await ensureMic(); }
     vis('btnMic', false); vis('micArea', true); vis('micMsg', false);
     $('optExaminer').checked = VIEW.examiner; $('optSelf').checked = VIEW.self;
     probeExaminerVideo(); updateStage(); setExaminer('nod');   // 미리보기
@@ -1265,6 +1388,7 @@ $('btnMic').onclick = async () => {
 };
 
 $('btnStart').onclick = async () => {
+  if (S.mode === 'practice') return startPractice();
 
   S.attemptId = `${S.set.id}-${S.sid || S.email.split('@')[0]}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 5)}`;
   window.onbeforeunload = () => '시험이 진행 중입니다.';
@@ -1307,11 +1431,27 @@ async function runExam() {
   for (S.idx = 0; S.idx < total; S.idx++) {
     const q = S.questions[S.idx];
     if (q.part !== lastPart) { await waitPartButton(q.part); lastPart = q.part; }
+    const rec = await askQuestion(q, `Part ${q.part} · 문항 ${S.idx + 1}/${total}`, S.idx / total * 100);
+    enqueue({
+      label: `P${q.part}-${q.order}`, blob: rec.blob, duration: rec.duration,
+      payload: { action: 'answer', session: S.session, setId: S.set.id, attemptId: S.attemptId,
+                 part: q.part, order: q.order, question: q.text, durationSec: rec.duration, peak: rec.peak }
+    });
+    await sleep(600);
+  }
+  $('prog').style.width = '100%';
+  if (lastPart === 3) await closingStatement();   // 종료 멘트는 Part 3까지 마친 뒤에만 한 번
+  examFinished = true;
+  setExaminer('idle'); cameraOff();
+  show('vDone'); renderUp();
+  if (!uploading) finalize();
+}
 
-    // 화면 초기화
+/* 문항 하나: 질문 제시 → (Part 2) 준비 → 녹음. 모의고사·파트별 연습 공통. 녹음 결과 {blob, duration, peak}를 돌려줌 */
+async function askQuestion(q, label, progress) {
     show('vQ');
-    $('qLabel').textContent = `Part ${q.part} · 문항 ${S.idx + 1}/${total}`;
-    $('prog').style.width = (S.idx / total * 100) + '%';
+    $('qLabel').textContent = label;
+    $('prog').style.width = progress + '%';
     ['cue', 'memoWrap', 'timer', 'qMeter', 'btnEnd', 'btnSkipPrep', 'videoWrap', 'fvWrap'].forEach(id => vis(id, false));
     setPhase('', '');
     const showText = S.set.showText || q.longTurn;
@@ -1351,21 +1491,146 @@ async function runExam() {
     await countdown(q.answer, $('btnEnd'), MIN_ANSWER_SEC);
     const rec = stopRec();
     vis('qMeter', false); setPhase('', ''); setExaminer('idle');
-
-    enqueue({
-      label: `P${q.part}-${q.order}`, blob: rec.blob, duration: rec.duration,
-      payload: { action: 'answer', session: S.session, setId: S.set.id, attemptId: S.attemptId,
-                 part: q.part, order: q.order, question: q.text, durationSec: rec.duration, peak: rec.peak }
-    });
-    await sleep(600);
-  }
-  $('prog').style.width = '100%';
-  if (lastPart === 3) await closingStatement();   // 종료 멘트는 Part 3까지 마친 뒤에만 한 번
-  examFinished = true;
-  setExaminer('idle'); cameraOff();
-  show('vDone'); renderUp();
-  if (!uploading) finalize();
+    return rec;
 }
+
+/* ================= 시작 전 화면 (모의고사 / 파트별 연습 공통) ================= */
+const EXAM_TIPS = $('readyTips').innerHTML;
+const PRACTICE_TIPS = `<li>실제 시험과 똑같이 질문을 들은 뒤 <b>“삐”</b> 소리가 나면 녹음이 시작돼요.</li>
+  <li>답변 시간이 끝나거나 <b>답변 종료</b>를 누르면 바로 내 녹음을 들어볼 수 있어요.</li>
+  <li>마음에 들지 않으면 같은 문항을 몇 번이든 다시 답할 수 있어요.</li>
+  <li>연습 녹음은 <b>이 기기에만</b> 있고 제출되지 않아요. 남기고 싶으면 ⬇ 저장을 누르세요.</li>`;
+function showReady(mode) {
+  S.mode = mode;
+  $('readyTips').innerHTML = mode === 'practice' ? PRACTICE_TIPS : EXAM_TIPS;
+  vis('btnReadyBack', mode === 'practice'); vis('optTextWrap', mode === 'practice');
+  $('btnStart').textContent = mode === 'practice' ? '연습 시작' : '시험 시작';
+  $('previewSlot').appendChild($('stage'));        // 이전 연습에서 시험 화면으로 옮긴 면접관 화면을 미리보기 자리로
+  if (A.ctx) { updateStage(); setExaminer('nod'); applySelfOption(); }   // 마이크를 이미 켰으면 바로 시작 가능
+  show('vReady');
+}
+
+/* ================= 파트별 연습 =================
+   이미 출제된 차수의 문항을 Part별로 골라, 모의고사와 같은 화면·녹음으로 연습.
+   문항마다 답변이 끝나면 바로 내 녹음을 듣고, 다시 답하거나 다음 문항으로. 녹음은 서버에 보내지 않음 */
+const PR = { sets: null, part: 1, item: null, takes: [], active: false };
+try { PR.part = +localStorage.getItem('ielts_pr_part') || 1; } catch (_) {}
+$('btnPractice').onclick = () => openPracticePick();
+$('btnPrBack').onclick = () => show('vSets');
+$('prTabs').querySelectorAll('button').forEach(b => b.onclick = () => {
+  PR.part = +b.dataset.part; try { localStorage.setItem('ielts_pr_part', PR.part); } catch (_) {}
+  renderPracticeList();
+});
+async function openPracticePick() {
+  PR.active = false;
+  show('vPrPick'); vis('prMsg', false);
+  if (!PR.sets) {
+    $('prList').innerHTML = '<p class="empty">불러오는 중…</p>';
+    try { PR.sets = (await apiGet({ action: 'practice', session: S.session })).sets; }
+    catch (e) { $('prList').innerHTML = `<p class="empty">문제를 불러오지 못했어요. ${e.server ? escapeHtml(e.message) : '인터넷 연결을 확인하고 다시 눌러 주세요.'}</p>`; return; }
+  }
+  renderPracticeList();
+}
+function practiceItems(part) {
+  return (PR.sets || []).map(s => ({ set: s, part, qs: s.questions.filter(q => q.part === part) })).filter(x => x.qs.length);
+}
+function renderPracticeList() {
+  $('prTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.part === PR.part));
+  const items = practiceItems(PR.part), box = $('prList'); box.innerHTML = '';
+  $('btnPrRandom').disabled = !items.length;
+  $('btnPrRandom').onclick = () => pickPractice(items[Math.floor(Math.random() * items.length)]);
+  if (!items.length) { box.innerHTML = '<p class="empty">아직 연습할 수 있는 문제가 없어요. 모의고사가 한 번 치러지면 그 문제로 연습할 수 있어요.</p>'; return; }
+  items.forEach(it => {
+    const b = document.createElement('button');
+    const min = Math.max(1, Math.round(it.qs.reduce((s, q) => s + q.answer + q.prep, 0) / 60));
+    if (PR.part === 2) {
+      const main = it.qs.find(q => q.longTurn) || it.qs[0];
+      b.innerHTML = `${escapeHtml(main.text)}<small>${escapeHtml(it.set.title)} · ${it.qs.length}문항 · 약 ${min}분</small>`;
+    } else b.innerHTML = `${escapeHtml(it.set.title)}<small>${it.qs.length}문항 · 약 ${min}분</small>`;
+    b.onclick = () => pickPractice(it);
+    box.appendChild(b);
+  });
+}
+async function pickPractice(it) {
+  PR.item = it;
+  S.set = { id: it.set.id, title: it.set.title, showText: it.set.showText, guide: '' };
+  S.questions = it.qs;
+  msg($('prMsg'), 'warn', '문제를 준비하는 중…');
+  try { await prefetchAudio((i, n) => msg($('prMsg'), 'warn', `질문 음성을 받는 중… (${i}/${n})`)); }
+  catch (e) { msg($('prMsg'), 'bad', e.message + ' 다시 눌러 주세요.'); return; }
+  vis('prMsg', false);
+  if (S.questions.some(q => q.video)) loadYouTubeApi();
+  prefetchVideos();
+  $('setTitle').textContent = `연습 · Part ${it.part} · ${it.set.title}`;
+  $('guide').textContent = PART_INFO[it.part][1];
+  $('optText').checked = !!it.set.showText;
+  showReady('practice');
+}
+$('btnReadyBack').onclick = () => { cameraOff(); openPracticePick(); };
+
+async function startPractice() {
+  S.set.showText = $('optText').checked;
+  $('panelSlot').appendChild($('stage')); setExaminer('idle'); updateStage();
+  $('upState').textContent = '';
+  PR.takes.forEach(t => t.forEach(r => { try { URL.revokeObjectURL(r.url); } catch (_) {} }));
+  const list = S.questions; PR.takes = list.map(() => []); PR.active = true;
+  await waitPartButton(list[0].part);
+  for (let i = 0; i < list.length;) {
+    const rec = await askQuestion(list[i], `연습 · Part ${list[i].part} · 문항 ${i + 1}/${list.length}`, i / list.length * 100);
+    rec.url = URL.createObjectURL(rec.blob);
+    PR.takes[i].push(rec);
+    // 선생님 활용도 화면용 기록 (녹음은 보내지 않고 문항·길이만)
+    apiPostRetry({ action: 'practiceLog', session: S.session, setId: S.set.id, part: list[i].part, order: list[i].order,
+                   qid: list[i].qid, durationSec: rec.duration, take: PR.takes[i].length }, 3).catch(() => {});
+    const act = await practiceReview(i);
+    if (act === 'stop') break;
+    if (act === 'next') i++;                        // 'redo'면 같은 문항을 다시
+  }
+  setExaminer('idle'); cameraOff();
+  practiceSummary();
+}
+function takeRows(q, takes) {
+  return takes.map((r, k) => ({ r, k })).reverse().map(({ r, k }) =>
+    `<div class="take${k === takes.length - 1 && takes.length > 1 ? ' latest' : ''}"><b>시도 ${k + 1} · ${r.duration}초</b>
+      <audio controls preload="metadata" src="${r.url}"></audio>
+      <a href="${r.url}" download="IELTS연습_P${q.part}-${q.order}_${k + 1}.wav">⬇ 저장</a></div>`).join('');
+}
+/* 녹음을 들어보고 다음 행동 고르기: 'redo' | 'next' | 'stop' */
+function practiceReview(i) {
+  const q = S.questions[i], takes = PR.takes[i], last = takes[takes.length - 1], isLast = i === S.questions.length - 1;
+  $('prRevLabel').textContent = `연습 · Part ${q.part} · 문항 ${i + 1}/${S.questions.length}`;
+  $('prRevTag').textContent = `Part ${q.part} · ${q.order}`;
+  $('prRevQ').textContent = q.text;
+  $('prRevCue').textContent = q.cue || ''; vis('prRevCue', q.longTurn);
+  $('prRevTakes').innerHTML = takeRows(q, takes);
+  const warn = last.peak < 0.02 ? '소리가 거의 녹음되지 않았어요. 마이크가 켜져 있는지 확인해 보세요.'
+    : q.longTurn && last.duration < 60 ? `Part 2는 1~2분을 채워 말하는 게 좋아요. 이번에는 ${last.duration}초 말했어요.`
+    : q.part === 3 && last.duration < 30 ? `Part 3는 이유와 예시를 덧붙여 길게 말해 보세요. 이번에는 ${last.duration}초 말했어요.`
+    : q.part === 1 && last.duration < 10 ? `Part 1도 한 문장으로 끝내지 말고 이유를 하나 더 붙여 보세요. 이번에는 ${last.duration}초 말했어요.` : '';
+  $('prRevWarn').textContent = warn; vis('prRevWarn', !!warn);
+  $('btnPrNext').textContent = isLast ? '연습 끝내기 ✓' : '다음 문항 →';
+  vis('btnPrStop', !isLast);
+  show('vPrRev');
+  return new Promise(res => {
+    const go = act => () => { $('prRevTakes').querySelectorAll('audio').forEach(a => a.pause()); res(act); };
+    $('btnPrRedo').onclick = go('redo'); $('btnPrNext').onclick = go('next'); $('btnPrStop').onclick = go('stop');
+  });
+}
+function practiceSummary() {
+  const done = PR.takes.map((t, i) => ({ q: S.questions[i], t })).filter(x => x.t.length);
+  const n = done.reduce((s, x) => s + x.t.length, 0);
+  $('prDoneSub').textContent = `${S.set.title} · Part ${PR.item.part} — ${done.length}문항, 녹음 ${n}개. 이 화면을 벗어나면 연습 녹음은 사라져요. 남기고 싶은 녹음은 ⬇ 저장을 누르세요.`;
+  $('prDoneList').innerHTML = done.map(({ q, t }) => `<div class="card"><div class="rhead"><span class="tagq">Part ${q.part} · ${q.order}</span>
+    <div class="qtext">${escapeHtml(q.text)}</div></div>${takeRows(q, t)}</div>`).join('');
+  show('vPrDone');
+}
+const prLeave = fn => () => { $('prDoneList').querySelectorAll('audio').forEach(a => a.pause()); fn(); };
+$('btnPrAgain').onclick = prLeave(() => showReady('practice'));
+$('btnPrOther').onclick = prLeave(() => openPracticePick());
+$('btnPrHome').onclick = prLeave(() => { PR.active = false; show('vSets'); });
+window.addEventListener('beforeunload', e => {
+  if (PR.active && PR.takes.some(t => t.length)) { e.preventDefault(); e.returnValue = ''; }   // 연습 녹음이 사라지기 전에 한 번 확인
+});
 
 /* ================= 시험 종료 멘트 ================= */
 /* 실제 IELTS처럼 면접관이 "Thank you. That is the end of the speaking test."로 끝낸다.

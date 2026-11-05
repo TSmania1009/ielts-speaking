@@ -217,6 +217,25 @@
   .growth-row:hover { border-color: var(--navy-2); border-left-color: var(--gold); }
   .growth-row.sel { grid-template-columns: auto 1fr auto; align-items:start; }
   .growth-row input[type=checkbox] { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--navy); }
+  /* ===== 활용도 ===== */
+  .kpis { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { background:#fff; border:1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .kpi b { display:block; font-size: 22px; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .kpi span { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .corr { display:grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 18px; align-items:start; margin-top: 12px; }
+  .corr svg { width:100%; height:auto; display:block; overflow: visible; }
+  .corr .stat { font-size: 30px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .corr .note { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .corr .ctip { position:absolute; pointer-events:none; background: var(--ink); color:#fff; font-size: 12px; line-height: 1.4; padding: 5px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -110%); z-index: 2; }
+  @media (max-width: 900px) { .corr { grid-template-columns: 1fr; } }
+  .gtable th[data-k] { cursor:pointer; user-select:none; } .gtable th[data-k]:hover { color: var(--navy); }
+  .gtable th.on { color: var(--navy); }
+  .up { color: var(--ok); font-weight: 800; } .down { color: var(--bad); font-weight: 800; }
+  .bar0 { display:inline-block; height: 8px; border-radius: 4px; background: var(--navy); vertical-align: middle; margin-left: 6px; opacity: .75; }
+  .cal { display:grid; grid-auto-flow: column; grid-template-rows: repeat(7, 12px); gap: 3px; margin: 8px 0; }
+  .cal i { width: 12px; height: 12px; border-radius: 3px; background:#eceef6; display:block; }
+  .cal i.l1 { background:#c9c7f0; } .cal i.l2 { background:#8f8ce0; } .cal i.l3 { background:#4b48b8; } .cal i.l4 { background: var(--navy); }
+  .usdetail td { background:#fafaff; white-space: normal; }
   .gsec-title { font-size: 14px; font-weight: 800; color: var(--navy); margin: 18px 0 0; }
 </style>
 </head>
@@ -226,7 +245,7 @@
   <div class="brand"><b>IELTS 교사용</b><span>CHUNGNAM SAMSUNG ACADEMY</span></div>
   <span class="hint hidden" id="whoami" style="color:#d9d8f5; margin-left:auto"></span>
   <button class="hidden" id="btnLogout" style="background: rgba(255,255,255,.12); padding: 7px 12px; font-size: 13px">로그아웃</button>
-  <div class="tabs hidden" id="tabsBar"><button class="tab on" data-tab="author">Speaking 출제</button><button class="tab" data-tab="grade">Speaking 채점</button><button class="tab" data-tab="growth">성장 기록</button><button class="tab" data-tab="wassign">Writing 출제</button><button class="tab" data-tab="wgrade">Writing 첨삭</button></div>
+  <div class="tabs hidden" id="tabsBar"><button class="tab on" data-tab="author">Speaking 출제</button><button class="tab" data-tab="grade">Speaking 채점</button><button class="tab" data-tab="growth">성장 기록</button><button class="tab" data-tab="usage">활용도</button><button class="tab" data-tab="wassign">Writing 출제</button><button class="tab" data-tab="wgrade">Writing 첨삭</button></div>
 </header>
 <main>
   <section id="vLogin" class="login card">
@@ -278,6 +297,18 @@
         <button class="ghost" id="grRestore">↩ 뺀 기록 모두 되돌리기</button><button class="danger" id="grDel">🗑 성장 기록에서 모두 빼기</button></div></div>
     </div>
     <div id="grDetail" class="hidden"></div>
+   </div>
+   <div id="tabUsage" class="hidden">
+    <div class="card row between">
+      <div><h2>플랫폼 활용도와 성장</h2><p class="hint" style="margin:4px 0 0">학생별로 파트별 연습·직접 전사·고쳐 쓰기를 얼마나 했는지와, Band가 처음보다 얼마나 올랐는지를 함께 봐요. (교사만 볼 수 있어요)</p></div>
+      <div class="row"><input type="text" id="usQ" placeholder="이름·학번·이메일 검색" style="width:190px">
+        <select id="usCls" style="width:auto"></select>
+        <button class="plain" id="usCsv">⬇ CSV</button><button class="plain" id="usReload">새로고침</button></div>
+    </div>
+    <div class="kpis" id="usKpis"></div>
+    <div class="card" id="usCorr"></div>
+    <div class="card"><div class="row between"><h2>학생별 활용도</h2><span class="hint">열 제목을 누르면 정렬 · 줄을 누르면 활동 달력</span></div>
+      <div class="tscroll" style="margin-top:10px"><table class="gtable" id="usTable"></table></div></div>
    </div>
    <div id="tabWAssign" class="hidden">
     <div class="card row between">
@@ -772,6 +803,8 @@ function switchTab(t) {
   $('tabAuthor').classList.toggle('hidden', t !== 'author'); $('tabGrade').classList.toggle('hidden', t !== 'grade');
   $('tabGrowth').classList.toggle('hidden', t !== 'growth');
   if (t === 'growth') { grShowList(); grLoad().catch(e => toast(e.message, true)); }
+  $('tabUsage').classList.toggle('hidden', t !== 'usage');
+  if (t === 'usage') usLoad().catch(e => toast(e.message, true));
   $('tabWAssign').classList.toggle('hidden', t !== 'wassign'); $('tabWGrade').classList.toggle('hidden', t !== 'wgrade');
   WT.pasteTarget = null;
   if (t === 'grade') { fillSetFilter(); showList(); loadAttempts(); }
@@ -1058,6 +1091,7 @@ function answerCard(x) {
     <div class="row" style="margin-top:6px"><button class="plain" data-listen>▶ 학생 녹음 듣기</button></div><div data-player></div>
     <label class="f">AI 전사 <span class="who ref">교사 참고</span></label><div class="tbox" data-tr>${x.aiTranscript ? esc(x.aiTranscript) : '<span class="hint">아직 없음</span>'}</div>
     ${String(x.selfTranscript || '').trim() ? `<label class="f">학생 직접 전사 <span class="who ref">학생이 녹음을 듣고 적음${x.selfAt ? ' · ' + esc(x.selfAt) : ''}</span></label><div class="tbox">${esc(x.selfTranscript)}</div>` : ''}
+    ${String(x.selfFixed || '').trim() ? `<label class="f">학생 스스로 고쳐 쓰기 <span class="who ref">학생이 문법·표현을 고침</span></label><div class="tbox" style="background:#fff8e1">${esc(x.selfFixed)}</div>` : ''}
     <details data-notesw ${x.aiNotes ? '' : 'class="hidden"'}><summary>AI 메모 (교사 참고)</summary><div class="tbox" style="margin-top:6px" data-notes>${esc(x.aiNotes)}</div></details>
     <div class="fbfields">
       <div class="fbh">학생에게 줄 피드백 <span class="who out">학생에게 전달됨</span></div>
@@ -1803,6 +1837,218 @@ function wgAutosave() {
   clearTimeout(WT.saveT);
   WT.saveT = setTimeout(async () => { try { await wgSave(false); } catch (e) { if (a) a.textContent = '⚠ 자동저장 실패: ' + e.message; } }, 1500);
 }
+
+/* =====================================================================
+ *  활용도 — 학생별 파트별 연습·직접 전사·고쳐 쓰기 + Band 변화, 그리고 둘의 상관관계
+ * ===================================================================== */
+const US = { list: [], today: '', recentFrom: '', sort: 'sid', desc: false, open: '', x: 'between', y: 'sDelta' };
+const bandDelta = arr => arr.length >= 2 ? Math.round((arr[arr.length - 1].band - arr[0].band) * 10) / 10 : null;
+/* 첫 채점 시험 ~ 최근 채점 시험 사이에 한 연습 (Band 변화와 비교하기에 가장 공정한 기간) */
+function practiceBetween(s) {
+  const sp = s.speaking; if (sp.length < 2) return null;
+  const a = sp[0].date, b = sp[sp.length - 1].date;
+  return Object.keys(s.daily).reduce((n, d) => n + (d >= a && d < b ? s.daily[d] : 0), 0);
+}
+const US_COLS = [
+  { k: 'sid', t: '학번', v: s => s.sid || '' },
+  { k: 'name', t: '이름', v: s => s.name || s.email },
+  { k: 'cls', t: '반/번호', v: s => s.cls || '' },
+  { k: 'takes', t: '연습 녹음', n: 1, v: s => s.practice.takes, bar: 1 },
+  { k: 'min', t: '연습 시간(분)', n: 1, v: s => Math.round(s.practice.sec / 6) / 10 },
+  { k: 'days', t: '연습한 날', n: 1, v: s => s.practice.days },
+  { k: 'qs', t: '연습 문항', n: 1, v: s => s.practice.questions },
+  { k: 'recent', t: '최근 2주', n: 1, v: s => s.practice.recentTakes },
+  { k: 'p123', t: 'P1 / P2 / P3', v: s => `${s.practice.byPart[1]} / ${s.practice.byPart[2]} / ${s.practice.byPart[3]}`, sortV: s => s.practice.byPart[2] },
+  { k: 'selfTr', t: '직접 전사', n: 1, v: s => s.selfTr },
+  { k: 'selfFix', t: '고쳐 쓰기', n: 1, v: s => s.selfFix },
+  { k: 'attempts', t: '모의고사', n: 1, v: s => s.attempts },
+  { k: 'sBand', t: 'Speaking Band', v: s => s.speaking.length ? (s.speaking.length > 1 ? `${s.speaking[0].band} → ${s.speaking[s.speaking.length - 1].band}` : String(s.speaking[0].band)) : '', sortV: s => s.speaking.length ? s.speaking[s.speaking.length - 1].band : -1 },
+  { k: 'sDelta', t: 'S 변화', n: 1, v: s => bandDelta(s.speaking), delta: 1 },
+  { k: 'wsubs', t: 'Writing', n: 1, v: s => s.wsubs },
+  { k: 'wBand', t: 'Writing Band', v: s => s.writing.length ? (s.writing.length > 1 ? `${s.writing[0].band} → ${s.writing[s.writing.length - 1].band}` : String(s.writing[0].band)) : '', sortV: s => s.writing.length ? s.writing[s.writing.length - 1].band : -1 },
+  { k: 'wDelta', t: 'W 변화', n: 1, v: s => bandDelta(s.writing), delta: 1 },
+  { k: 'last', t: '마지막 연습', v: s => String(s.practice.last || '').slice(0, 10) }
+];
+const US_X = {
+  between: ['첫~최근 Speaking 시험 사이 연습 녹음 수', practiceBetween],
+  takes: ['전체 연습 녹음 수', s => s.practice.takes],
+  min: ['전체 연습 시간(분)', s => s.practice.sec / 60],
+  days: ['연습한 날 수', s => s.practice.days],
+  selfTr: ['직접 전사한 문항 수', s => s.selfTr],
+  all: ['활용 합계 (연습 녹음 + 전사 + 고쳐 쓰기)', s => s.practice.takes + s.selfTr + s.selfFix]
+};
+const US_Y = {
+  sDelta: ['Speaking Band 변화 (첫 → 최근)', s => bandDelta(s.speaking)],
+  wDelta: ['Writing Band 변화 (첫 → 최근)', s => bandDelta(s.writing)],
+  sLast: ['Speaking 최근 Band', s => s.speaking.length ? s.speaking[s.speaking.length - 1].band : null]
+};
+
+async function usLoad() {
+  const d = await apiGet({ action: 'tusage', session: KEY });
+  US.list = d.students; US.today = d.today; US.recentFrom = d.recentFrom;
+  const cls = [...new Set(US.list.map(s => String(s.cls || '').split('-').slice(0, 2).join('-')).filter(Boolean))].sort();
+  const cur = $('usCls').value;
+  $('usCls').innerHTML = '<option value="">전체 반</option>' + cls.map(c => `<option value="${esc(c)}">${esc(c)}반</option>`).join('');
+  $('usCls').value = cls.includes(cur) ? cur : '';
+  usRender();
+}
+$('usReload').onclick = () => busy($('usReload'), '불러오는 중…', usLoad);
+$('usQ').oninput = () => usRender();
+$('usCls').onchange = () => usRender();
+function usFiltered() {
+  const q = $('usQ').value.trim().toLowerCase(), c = $('usCls').value;
+  return US.list.filter(s => (!c || String(s.cls || '').startsWith(c + '-') || s.cls === c)
+    && (!q || [s.name, s.sid, s.email].some(v => String(v || '').toLowerCase().includes(q))));
+}
+function usRender() {
+  const list = usFiltered();
+  // 요약
+  const sum = f => list.reduce((n, s) => n + f(s), 0);
+  const active = list.filter(s => s.practice.takes > 0).length, recentActive = list.filter(s => s.practice.recentTakes > 0).length;
+  $('usKpis').innerHTML = [
+    [list.length, '학생'], [`${active}명`, '파트별 연습을 한 학생'], [`${recentActive}명`, '최근 2주 연습한 학생'],
+    [sum(s => s.practice.takes), '연습 녹음 합계'], [`${Math.round(sum(s => s.practice.sec) / 60)}분`, '연습 시간 합계'],
+    [sum(s => s.selfTr), '직접 전사 문항'], [sum(s => s.selfFix), '고쳐 쓰기 문항']
+  ].map(([b, t]) => `<div class="kpi"><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join('');
+  usCorr(list);
+  usTable(list);
+}
+
+/* 상관계수: Pearson r(직선 관계)과 Spearman ρ(순위 관계 — 연습량이 한쪽으로 몰려 있을 때 더 믿을 만함) */
+function pearson(xs, ys) {
+  const n = xs.length; if (n < 3) return null;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null;
+}
+function ranks(v) {
+  const idx = v.map((x, i) => [x, i]).sort((a, b) => a[0] - b[0]), r = new Array(v.length);
+  for (let i = 0; i < idx.length;) { let j = i; while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++;
+    for (let k = i; k <= j; k++) r[idx[k][1]] = (i + j) / 2 + 1; i = j + 1; }
+  return r;
+}
+function corrWord(r) {
+  if (r == null) return '';
+  const a = Math.abs(r), dir = r > 0 ? '양의' : '음의';
+  return a < 0.1 ? '관계가 거의 없어요' : a < 0.3 ? `약한 ${dir} 관계` : a < 0.5 ? `중간 정도의 ${dir} 관계` : `강한 ${dir} 관계`;
+}
+function usCorr(list) {
+  const box = $('usCorr');
+  const opt = (o, cur) => Object.keys(o).map(k => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(o[k][0])}</option>`).join('');
+  const fx = US_X[US.x][1], fy = US_Y[US.y][1];
+  const pts = list.map(s => ({ s, x: fx(s), y: fy(s) })).filter(p => p.x != null && p.y != null && !isNaN(p.x) && !isNaN(p.y));
+  const r = pearson(pts.map(p => p.x), pts.map(p => p.y));
+  const rho = pts.length >= 3 ? pearson(ranks(pts.map(p => p.x)), ranks(pts.map(p => p.y))) : null;
+  // 연습을 많이 한 절반 vs 적게 한 절반의 평균 변화
+  let halves = '';
+  if (pts.length >= 4) {
+    const sorted = pts.slice().sort((a, b) => a.x - b.x), h = Math.floor(sorted.length / 2);
+    const avg = a => a.reduce((n, p) => n + p.y, 0) / a.length;
+    const lo = avg(sorted.slice(0, h)), hi = avg(sorted.slice(sorted.length - h));
+    halves = `<p class="note" style="margin-top:10px">활용이 <b>많은 절반</b>(${h}명) 평균 <b>${hi >= 0 && US.y !== 'sLast' ? '+' : ''}${hi.toFixed(2)}</b> · <b>적은 절반</b>(${h}명) 평균 <b>${lo >= 0 && US.y !== 'sLast' ? '+' : ''}${lo.toFixed(2)}</b></p>`;
+  }
+  box.innerHTML = `<div class="row between"><h2>활용도 ↔ 성장 관계</h2>
+      <div class="row"><select id="usX" style="width:auto">${opt(US_X, US.x)}</select><span class="hint">vs</span><select id="usY" style="width:auto">${opt(US_Y, US.y)}</select></div></div>
+    <div class="corr"><div style="position:relative" id="usPlot"></div>
+      <div>${pts.length < 3 ? `<p class="note">두 값이 모두 있는 학생이 ${pts.length}명이라 아직 관계를 계산할 수 없어요. (Band 변화는 채점된 시험·글이 2개 이상인 학생만 계산돼요)</p>` :
+        `<div class="hint">Pearson r (직선 관계)</div><div class="stat">${r == null ? '—' : r.toFixed(2)}</div><div style="font-weight:700;color:var(--navy)">${corrWord(r)}</div>
+         <div class="hint" style="margin-top:10px">Spearman ρ (순위 관계)</div><div class="stat" style="font-size:22px">${rho == null ? '—' : rho.toFixed(2)}</div>
+         <p class="note">학생 <b>${pts.length}명</b> 기준${pts.length < 15 ? ' — 인원이 적어 몇 명의 값에 따라 크게 바뀔 수 있어요' : ''}.</p>${halves}`}
+        <p class="note" style="margin-top:10px">r은 −1 ~ 1 사이예요. 0보다 크면 많이 활용한 학생일수록 많이 오른 경향이에요. 다만 <b>상관관계는 원인이 아니에요</b> — 원래 열심인 학생이 연습도 많이 하고 점수도 오를 수 있어요. 공정하게 비교하려면 x축을 ‘첫~최근 시험 사이 연습’으로 두세요.</p></div></div>`;
+  $('usX').onchange = e => { US.x = e.target.value; usCorr(usFiltered()); };
+  $('usY').onchange = e => { US.y = e.target.value; usCorr(usFiltered()); };
+  usScatter($('usPlot'), pts, US_X[US.x][0], US_Y[US.y][0], US.y !== 'sLast');
+}
+function usScatter(el, pts, xl, yl, zeroLine) {
+  if (!pts.length) { el.innerHTML = '<div class="hint" style="padding:40px 0;text-align:center">표시할 학생이 없어요</div>'; return; }
+  const W = 560, H = 300, L = 44, R = 14, T = 12, B = 40;
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const x0 = 0, x1 = Math.max(1, ...xs) * 1.05;
+  let y0 = Math.min(...ys, zeroLine ? 0 : Infinity), y1 = Math.max(...ys, zeroLine ? 0 : -Infinity);
+  if (y0 === y1) { y0 -= 0.5; y1 += 0.5; } const pad = (y1 - y0) * 0.12; y0 -= pad; y1 += pad;
+  const X = v => L + (W - L - R) * (v - x0) / (x1 - x0), Y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  const tick = (a, b) => { const st = niceStepU((b - a) / 4); const out = []; for (let v = Math.ceil(a / st) * st; v <= b + 1e-9; v += st) out.push(Math.round(v * 100) / 100); return out; };
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(xl)} 대 ${esc(yl)}">`;
+  tick(y0, y1).forEach(v => s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e3e5ef"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="10" fill="#6b6f86">${v}</text>`);
+  tick(x0, x1).forEach(v => s += `<text x="${X(v)}" y="${H - B + 14}" text-anchor="middle" font-size="10" fill="#6b6f86">${v}</text>`);
+  if (zeroLine && y0 < 0 && y1 > 0) s += `<line x1="${L}" x2="${W - R}" y1="${Y(0)}" y2="${Y(0)}" stroke="#6b6f86" stroke-dasharray="4 3"/>`;
+  s += `<text x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="#1b1d33">${esc(xl)}</text>`;
+  s += `<text x="12" y="${(T + H - B) / 2}" text-anchor="middle" font-size="11" font-weight="700" fill="#1b1d33" transform="rotate(-90 12 ${(T + H - B) / 2})">${esc(yl)}</text>`;
+  if (pts.length >= 3) {   // 추세선 (최소제곱)
+    const n = pts.length, mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+    const sxx = xs.reduce((a, v) => a + (v - mx) ** 2, 0);
+    if (sxx > 0) { const k = xs.reduce((a, v, i) => a + (v - mx) * (ys[i] - my), 0) / sxx;
+      const lx0 = Math.min(...xs), lx1 = Math.max(...xs);
+      s += `<line x1="${X(lx0)}" y1="${Y(my + k * (lx0 - mx))}" x2="${X(lx1)}" y2="${Y(my + k * (lx1 - mx))}" stroke="#fabe0d" stroke-width="3" stroke-linecap="round" opacity=".9"/>`; }
+  }
+  pts.forEach((p, i) => s += `<circle data-i="${i}" cx="${X(p.x)}" cy="${Y(p.y)}" r="6" fill="#161470" fill-opacity=".72" stroke="#fff" stroke-width="1.5"/>`);
+  el.innerHTML = s + '</svg>';
+  const tip = document.createElement('div'); tip.className = 'ctip hidden'; el.appendChild(tip);
+  el.querySelectorAll('circle[data-i]').forEach(c => {
+    const p = pts[+c.dataset.i];
+    const showTip = () => { const r = c.getBoundingClientRect(), b = el.getBoundingClientRect();
+      tip.innerHTML = `<b>${esc(p.s.name || p.s.email)}</b> ${esc(p.s.sid || '')}<br>x ${Math.round(p.x * 10) / 10} · y ${p.y > 0 && zeroLine ? '+' : ''}${p.y}`;
+      tip.style.left = (r.left + r.width / 2 - b.left) + 'px'; tip.style.top = (r.top - b.top) + 'px'; tip.classList.remove('hidden'); };
+    c.addEventListener('mouseenter', showTip); c.addEventListener('touchstart', showTip, { passive: true });
+    c.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+    c.style.cursor = 'pointer'; c.addEventListener('click', () => { US.open = p.s.key; usTable(usFiltered()); const row = document.querySelector(`#usTable tr[data-id="${CSS.escape(p.s.key)}"]`); if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+  });
+}
+function niceStepU(v) { const p = Math.pow(10, Math.floor(Math.log10(v || 1))), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
+
+function usTable(list) {
+  const col = US_COLS.find(c => c.k === US.sort) || US_COLS[0];
+  const sv = s => { const v = col.sortV ? col.sortV(s) : col.v(s); return v == null ? (col.n ? -Infinity : '') : v; };
+  const rows = list.slice().sort((a, b) => { const x = sv(a), y = sv(b); const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y)); return US.desc ? -c : c; });
+  const maxTakes = Math.max(1, ...list.map(s => s.practice.takes));
+  const cell = (c, s) => {
+    const v = c.v(s);
+    if (c.delta) return `<td class="n ${v > 0 ? 'up' : v < 0 ? 'down' : ''}">${v == null ? '<span class="hint">—</span>' : (v > 0 ? '+' : '') + v}</td>`;
+    if (c.bar) return `<td class="n">${v}<span class="bar0" style="width:${Math.round(v / maxTakes * 60)}px"></span></td>`;
+    return `<td class="${c.n ? 'n' : ''}">${v === '' || v == null ? '<span class="hint">—</span>' : esc(v)}</td>`;
+  };
+  $('usTable').innerHTML = `<thead><tr>${US_COLS.map(c => `<th data-k="${c.k}" class="${c.n ? 'n' : ''} ${c.k === US.sort ? 'on' : ''}">${esc(c.t)}${c.k === US.sort ? (US.desc ? ' ▼' : ' ▲') : ''}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(s => `<tr data-id="${esc(s.key)}">${US_COLS.map(c => cell(c, s)).join('')}</tr>${US.open === s.key ? `<tr class="usdetail"><td colspan="${US_COLS.length}">${usDetail(s)}</td></tr>` : ''}`).join('')}</tbody>`;
+  if (!rows.length) $('usTable').innerHTML += `<tbody><tr><td colspan="${US_COLS.length}" class="hint" style="padding:20px">해당하는 학생이 없어요</td></tr></tbody>`;
+  $('usTable').querySelectorAll('th[data-k]').forEach(th => th.onclick = () => {
+    if (US.sort === th.dataset.k) US.desc = !US.desc; else { US.sort = th.dataset.k; US.desc = !!US_COLS.find(c => c.k === th.dataset.k).n; }
+    usTable(usFiltered());
+  });
+  $('usTable').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => { US.open = US.open === tr.dataset.id ? '' : tr.dataset.id; usTable(usFiltered()); });
+}
+/* 한 학생: 최근 12주 연습 달력 + 시험 Band 기록 */
+function usDetail(s) {
+  const end = new Date(US.today + 'T00:00:00'), weeks = 12;
+  const start = new Date(end); start.setDate(start.getDate() - (weeks * 7 - 1));
+  start.setDate(start.getDate() - start.getDay());   // 달력 첫 칸은 일요일
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let cal = '';
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const n = s.daily[ymd(d)] || 0, lv = n === 0 ? '' : n < 3 ? 'l1' : n < 6 ? 'l2' : n < 12 ? 'l3' : 'l4';
+    cal += `<i class="${lv}" title="${ymd(d)} · 연습 ${n}회"></i>`;
+  }
+  const bl = (arr, label) => arr.length ? `<div style="margin-top:6px"><b style="color:var(--navy)">${label}</b> ${arr.map(x => `<span class="hint">${esc(x.date.slice(5))}</span> <b>${x.band}</b>`).join(' → ')}</div>` : '';
+  return `<div class="row" style="align-items:flex-start; gap:24px">
+    <div><div class="hint">최근 12주 파트별 연습 (칸 하나 = 하루, 진할수록 많이)</div><div class="cal">${cal}</div></div>
+    <div style="min-width:240px"><div>Part 1 <b>${s.practice.byPart[1]}</b>회 · Part 2 <b>${s.practice.byPart[2]}</b>회 · Part 3 <b>${s.practice.byPart[3]}</b>회 · 연습한 문항 <b>${s.practice.questions}</b>개</div>
+      ${practiceBetween(s) != null ? `<div class="hint" style="margin-top:4px">첫~최근 Speaking 시험 사이 연습 ${practiceBetween(s)}회</div>` : ''}
+      ${bl(s.speaking, 'Speaking')}${bl(s.writing, 'Writing')}
+      ${s.email ? `<div class="hint" style="margin-top:6px">${esc(s.email)}</div>` : ''}</div></div>`;
+}
+$('usCsv').onclick = () => {
+  const list = usFiltered();
+  const head = ['학번', '이름', '반/번호', '이메일', '연습 녹음', '연습 시간(분)', '연습한 날', '연습 문항', '최근 2주 연습', 'Part1 연습', 'Part2 연습', 'Part3 연습',
+    '첫~최근 시험 사이 연습', '직접 전사', '고쳐 쓰기', '모의고사 응시', '채점된 응시', 'Speaking 첫 Band', 'Speaking 최근 Band', 'Speaking 변화', 'Speaking 채점 수',
+    'Writing 제출', 'Writing 첫 Band', 'Writing 최근 Band', 'Writing 변화', '마지막 연습'];
+  const f = a => a.length ? [a[0].band, a[a.length - 1].band, bandDelta(a)] : ['', '', ''];
+  const rows = list.map(s => [s.sid, s.name, s.cls, s.email, s.practice.takes, Math.round(s.practice.sec / 6) / 10, s.practice.days, s.practice.questions, s.practice.recentTakes,
+    s.practice.byPart[1], s.practice.byPart[2], s.practice.byPart[3], practiceBetween(s), s.selfTr, s.selfFix, s.attempts, s.graded,
+    ...f(s.speaking), s.speaking.length, s.wsubs, ...f(s.writing), s.practice.last]);
+  const csv = [head, ...rows].map(r => r.map(v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+  a.download = `IELTS_활용도_${US.today || ''}.csv`; document.body.appendChild(a); a.click(); a.remove();
+};
 </script>
 </body>
 </html>
