@@ -1127,7 +1127,7 @@ async function runExam() {
     await sleep(600);
   }
   $('prog').style.width = '100%';
-  await closingStatement();
+  if (lastPart === 3) await closingStatement();   // 종료 멘트는 Part 3까지 마친 뒤에만 한 번
   examFinished = true;
   setExaminer('idle'); cameraOff();
   show('vDone'); renderUp();
@@ -1136,12 +1136,16 @@ async function runExam() {
 
 /* ================= 시험 종료 멘트 ================= */
 /* 실제 IELTS처럼 면접관이 "Thank you. That is the end of the speaking test."로 끝낸다.
-   exam.html과 같은 폴더에 closing.mp3가 있으면 그 음성, 없으면 브라우저 영어 음성(TTS), 둘 다 안 되면 글자만. */
+   교사가 출제 화면에서 녹음한 공통 종료 멘트가 있으면 그 음성, 없으면 브라우저 영어 음성(TTS), 둘 다 안 되면 글자만. */
 const CLOSING_TEXT = 'Thank you. That is the end of the speaking test.';
 let closingBuf = null;
 function prefetchClosing() {
-  fetch('closing.mp3', { cache: 'no-cache' })
-    .then(r => r.ok ? r.arrayBuffer() : null).then(b => { closingBuf = b; }).catch(() => {});
+  const id = S.set && S.set.closingAudioId;
+  if (id && !closingBuf) apiGet({ action: 'qaudio', session: S.session, id }).then(d => {
+    const bin = atob(d.data), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    closingBuf = u.buffer;
+  }).catch(() => {});
   // iPad Safari는 사용자가 누른 순간에 한 번 말하게 해 둬야 나중에 TTS가 나온다
   try { if (window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (_) {}
 }

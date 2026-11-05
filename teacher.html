@@ -238,6 +238,7 @@
     </div>
     <div id="setBox"></div>
     <div id="partsBox" class="parts"></div>
+    <div id="closingBox" style="margin-top:14px"></div>
    </div>
    <div id="tabGrade" class="hidden">
     <div id="gList">
@@ -402,7 +403,8 @@ $('btnLogout').onclick = () => { try { sessionStorage.removeItem(TKEY); google.a
 $('btnReload').onclick = () => busy($('btnReload'), '불러오는 중…', reload);
 
 async function reload(selectId) {
-  SETS = (await apiGet({ action: 'tsets', session: KEY })).sets;
+  const d = await apiGet({ action: 'tsets', session: KEY });
+  SETS = d.sets; CLOSING_ID = d.closingAudioId || '';
   if (selectId) CUR = selectId;
   if (!SETS.find(s => s.id === CUR)) CUR = SETS.length ? SETS[SETS.length - 1].id : '';
   render();
@@ -417,7 +419,67 @@ function render() {
   SETS.forEach(s => sel.add(new Option(`${s.id} · ${s.title}  ${s.open ? '🟢 공개' : '⚪ 비공개'}  (${s.questions.length}문항)`, s.id)));
   if (CUR === '__new') sel.add(new Option('(새 차수 만드는 중)', '__new'));
   sel.value = CUR;
-  renderSet(); renderParts();
+  renderSet(); renderParts(); renderClosing();
+}
+
+/* ---------------- 공통 종료 멘트 (모든 차수, Part 3 다음) ---------------- */
+const CLOSING_TEXT = 'Thank you. That is the end of the speaking test.';
+let CLOSING_ID = '';
+function renderClosing() {
+  const box = $('closingBox'); box.innerHTML = '';
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `
+    <div class="row between"><h2>공통 종료 멘트 <small>모든 차수에 같이 쓰임</small></h2></div>
+    <div class="qtext">${esc(CLOSING_TEXT)}</div>
+    <div class="meta">어느 차수든 Part 3 마지막 답변이 끝난 뒤 한 번 들려줍니다. (Part 3 문항이 없는 차수에서는 나오지 않음)</div>
+    <div class="badges">${CLOSING_ID ? '<span class="badge">🎙 음성</span>' : '<span class="badge none">음성 없음 — 브라우저 영어 음성(TTS)으로 읽어 줌</span>'}</div>
+    <div class="media">
+      <div class="row">
+        <button class="rec" data-rec>● 음성 녹음</button>
+        <div class="meter hidden" data-meter><div></div></div><span class="hint hidden" data-time></span>
+        <label class="btn ghost">음성 파일<input type="file" accept="audio/*,.m4a,.mp3,.wav" data-afile class="hidden"></label>
+        ${CLOSING_ID ? '<button class="plain" data-play>음성 듣기</button><button class="danger" data-del>음성 삭제</button>' : ''}
+      </div>
+      <div data-preview></div>
+      <div class="row hidden" data-pending style="margin-top:8px"><button data-msave>올리기</button><button class="plain" data-mcancel>취소</button><span class="hint" data-pinfo></span></div>
+    </div>`;
+  box.appendChild(el);
+  const f = n => el.querySelector(`[data-${n}]`);
+  let pending = null;
+  const showPending = (blob, mime, ex, info) => {
+    pending = { blob, mime, ext: ex };
+    f('preview').innerHTML = `<audio controls src="${URL.createObjectURL(blob)}"></audio>`;
+    f('pending').classList.remove('hidden'); f('pinfo').textContent = info;
+  };
+  const clearPending = () => { pending = null; f('preview').innerHTML = ''; f('pending').classList.add('hidden'); };
+  f('mcancel').onclick = clearPending;
+  f('msave').onclick = () => busy(f('msave'), '올리는 중…', async () => {
+    const d = await apiPost({ action: 'closingSave', mime: pending.mime, ext: pending.ext, data: await toBase64(pending.blob) });
+    toast(`종료 멘트 음성을 올렸어요 (${d.sizeKB}KB)`); await reload();
+  });
+  f('rec').onclick = async () => {
+    if (REC.active && REC.owner === el) {
+      const blob = stopRecording();
+      f('rec').textContent = '● 다시 녹음'; f('meter').classList.add('hidden'); f('time').classList.add('hidden');
+      showPending(blob, 'audio/wav', 'wav', '들어보고 괜찮으면 ‘올리기’를 누르세요.'); return;
+    }
+    if (REC.active) return toast('다른 문항을 녹음 중입니다. 먼저 정지하세요.', true);
+    try { await startRecording(el, f('meter').firstElementChild, f('time')); }
+    catch (e) { return toast('마이크를 켤 수 없습니다: ' + (e.name === 'NotAllowedError' ? '권한을 허용해 주세요.' : e.message), true); }
+    clearPending(); f('rec').textContent = '■ 정지'; f('meter').classList.remove('hidden'); f('time').classList.remove('hidden');
+  };
+  f('afile').onchange = e => {
+    const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+    if (file.size > AUDIO_MAX_MB * 1048576) return toast(`음성 파일은 ${AUDIO_MAX_MB}MB 이하만 올릴 수 있어요.`, true);
+    showPending(file, file.type || 'audio/mpeg', ext(file.name, 'mp3'), `${file.name} · ${Math.round(file.size / 1024)}KB`);
+  };
+  if (f('play')) f('play').onclick = () => busy(f('play'), '불러오는 중…', async () => {
+    const d = await apiGet({ action: 'qaudio', session: KEY, id: CLOSING_ID });
+    f('preview').innerHTML = `<audio controls autoplay src="${URL.createObjectURL(b64ToBlob(d.data, d.mime))}"></audio>`;
+  });
+  if (f('del')) f('del').onclick = confirmTwice(f('del'), '정말 삭제?', () => busy(f('del'), '삭제 중…', async () => {
+    await apiPost({ action: 'closingDelete' }); await reload();
+  }));
 }
 
 function renderSet() {
