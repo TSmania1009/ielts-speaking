@@ -993,7 +993,8 @@ function overallBand(arr) {
 }
 
 function renderDetail(d) {
-  GCUR = d; const a = d.attempt;
+  gFlush();                                   // 다른 응시로 넘어가기 전에 저장 안 된 입력부터 저장 (아직 이전 화면을 읽음)
+  GCUR = d; const a = d.attempt; GS.dirty = false;
   $('gList').classList.add('hidden'); $('gCommon').classList.add('hidden'); const box = $('gDetail'); box.classList.remove('hidden'); window.scrollTo(0, 0);
   const hasDraft = d.answers.some(x => x.aiTranscript || x.aiNotes);
   box.innerHTML = `
@@ -1013,6 +1014,7 @@ function renderDetail(d) {
     <div class="card out-card"><div class="row between"><h2>✉️ 종합 피드백</h2><span class="who out">학생에게 전달됨</span></div>
       <p class="hint" style="margin:4px 0 0">학생이 받는 최종 피드백이에요. Band 점수는 여기에 쓰지 마세요.</p>
       <textarea data-summary rows="8" style="margin-top:8px" placeholder="AI 초안을 만들면 여기에 채워집니다. 자유롭게 고치세요.">${esc(a.teacherSummary)}</textarea>
+      <div class="hint" data-auto style="margin-top:8px">${a.published ? '공개된 응시는 자동 저장하지 않아요. 고친 뒤 ‘수정 내용 공개’를 누르세요.' : '문항별 피드백·종합 피드백·Band는 입력하면 자동 저장돼요 (학생에게는 공개 전까지 안 보임).'}</div>
       <div class="actions" style="margin-top:12px"><button class="plain" data-save>임시 저장</button>
         ${a.published ? '<button class="danger" data-unpub>공개 취소</button><button class="gold" data-pub>수정 내용 공개</button>' : '<button class="gold" data-pub>학생에게 공개</button>'}</div></div>
     <div class="card ref-card"><div class="row between"><h2>📋 Band · 교사 참고용</h2><span class="who ref">학생에게 안 보임</span></div>
@@ -1025,7 +1027,7 @@ function renderDetail(d) {
     </div>
    </aside></div>`;
   const f = n => box.querySelector(`[data-${n}]`);
-  f('back').onclick = () => { showList(); loadAttempts().catch(() => {}); };
+  f('back').onclick = async () => { await gFlush(); showList(); loadAttempts().catch(() => {}); };
   const isHidden = () => !!(GA.find(x => x.attemptId === a.attemptId) || {}).hidden;
   const paintHide = () => { f('hide').textContent = isHidden() ? '👁 목록에 다시 보이기' : '🙈 목록에서 숨기기'; };
   paintHide();
@@ -1034,9 +1036,12 @@ function renderDetail(d) {
   f('growth').onclick = () => { const key = String(a.email || '').trim().toLowerCase() || 'sid:' + String(a.sid || '').trim(); switchTab('growth'); grOpen(key); };
   box.querySelectorAll('[data-band]').forEach(inp => inp.oninput = () => {
     if (inp.dataset.band !== 'overall') f('band="overall"').value = overallBand(['fc', 'lr', 'gra', 'p'].map(k => f(`band="${k}"`).value));
+    gAutosave();
   });
   const ansBox = f('answers');
   d.answers.forEach(x => ansBox.appendChild(answerCard(x)));
+  f('summary').addEventListener('input', gAutosave);
+  ansBox.querySelectorAll('[data-sec]').forEach(t => t.addEventListener('input', gAutosave));
   f('save').onclick = () => busy(f('save'), '저장 중…', async () => { renderDetail(await saveGrade(a.published)); toast('저장했어요.'); });
   f('pub').onclick = () => busy(f('pub'), '공개 중…', async () => { renderDetail(await saveGrade(true)); toast('학생에게 공개했어요.'); });
   if (f('unpub')) f('unpub').onclick = () => busy(f('unpub'), '처리 중…', async () => { renderDetail(await saveGrade(false)); toast('공개를 취소했어요.'); });
@@ -1121,8 +1126,44 @@ function collect() {
   };
 }
 async function saveGrade(publish) {
-  return apiPost({ action: 'gradeSave', attemptId: GCUR.attempt.attemptId, publish, ...collect() });
+  clearTimeout(GS.t); GS.t = null;
+  await GS.chain;                              // 진행 중인 자동 저장이 끝난 뒤 저장 (순서가 뒤바뀌지 않게)
+  GS.dirty = false;
+  try { return await apiPost({ action: 'gradeSave', attemptId: GCUR.attempt.attemptId, publish, ...collect() }); }
+  catch (e) { GS.dirty = true; throw e; }
 }
+/* Speaking 채점 자동 저장: 입력이 멈추고 1.5초 뒤 '검토 중'으로 저장.
+ *  공개된 응시는 쓰는 도중의 글이 학생에게 바로 보이지 않도록 자동 저장하지 않음 (‘수정 내용 공개’로 저장). */
+const GS = { t: null, dirty: false, chain: Promise.resolve() };
+function gAutoMsg(text, color) {
+  const el = $('gDetail').querySelector('[data-auto]'); if (!el) return;
+  el.textContent = text; el.style.color = color || '';
+}
+function gAutosave() {
+  if (!GCUR) return;
+  GS.dirty = true;
+  if (GCUR.attempt.published) { gAutoMsg('⚠ 저장 안 된 수정이 있어요. 공개된 응시는 자동 저장하지 않으니 ‘수정 내용 공개’를 누르세요.', 'var(--bad)'); return; }
+  gAutoMsg('입력 중…');
+  clearTimeout(GS.t); GS.t = setTimeout(gFlush, 1500);
+}
+function gFlush() {
+  clearTimeout(GS.t); GS.t = null;
+  if (!GS.dirty || !GCUR || GCUR.attempt.published) return GS.chain;
+  const id = GCUR.attempt.attemptId;
+  const body = { action: 'gradeSave', attemptId: id, publish: false, ...collect() };   // 지금 화면 내용을 바로 읽어 둠
+  GS.dirty = false;
+  const same = () => GCUR && GCUR.attempt.attemptId === id;
+  GS.chain = GS.chain.then(() => apiPost(body)).then(() => {
+    if (same() && !GS.dirty) gAutoMsg(`✓ 자동 저장됨 (${new Date().toTimeString().slice(0, 5)})`, 'var(--ok)');
+  }, e => {
+    if (same()) { GS.dirty = true; gAutoMsg('⚠ 자동 저장 실패: ' + e.message + ' — ‘임시 저장’을 눌러 주세요.', 'var(--bad)'); }
+  });
+  return GS.chain;
+}
+window.addEventListener('beforeunload', e => {
+  if (!GS.dirty && !GS.t) return;
+  gFlush(); e.preventDefault(); e.returnValue = '';
+});
 async function runAi(overwrite, prog) {
   const a = GCUR.attempt;
   await saveGrade(a.published);                         // 지금까지 고친 내용 먼저 저장
