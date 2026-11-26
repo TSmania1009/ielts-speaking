@@ -728,7 +728,8 @@ const REC = { ctx: null, stream: null, proc: null, active: false, chunks: [], ow
 async function startRecording(owner, bar, timeEl) {
   const AC = window.AudioContext || window.webkitAudioContext;
   REC.ctx = new AC(); if (REC.ctx.state === 'suspended') await REC.ctx.resume();
-  REC.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
+  // 문항 녹음은 자동 음량 조절·에코 제거를 끈다 (켜 두면 말하는 동안 음량이 점점 줄어듦). 음량은 녹음 뒤 normalize()로 맞춘다.
+  REC.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
   const src = REC.ctx.createMediaStreamSource(REC.stream);
   REC.proc = REC.ctx.createScriptProcessor(4096, 1, 1); REC.chunks = [];
   REC.proc.onaudioprocess = ev => {
@@ -747,7 +748,17 @@ function stopRecording() {
   REC.stream.getTracks().forEach(t => t.stop()); REC.ctx.close(); REC.active = false; REC.owner = null;
   let len = 0; REC.chunks.forEach(c => len += c.length);
   const all = new Float32Array(len); let o = 0; REC.chunks.forEach(c => { all.set(c, o); o += c.length; });
-  return encodeWav(trimSilence(downsample(all, rate, RATE)), RATE);
+  return encodeWav(normalize(trimSilence(downsample(all, rate, RATE))), RATE);
+}
+/* 음량 맞춤: 가장 큰 소리가 0.89(약 -1dBFS)가 되도록 전체에 같은 배율을 곱한다. 잡음이 커지지 않게 최대 8배까지만. */
+function normalize(s) {
+  let peak = 0; for (let i = 0; i < s.length; i++) { const v = Math.abs(s[i]); if (v > peak) peak = v; }
+  if (peak < 1e-4) return s;
+  const g = Math.min(8, 0.89 / peak);
+  if (Math.abs(g - 1) < 0.01) return s;
+  const out = new Float32Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s[i] * g;
+  return out;
 }
 function trimSilence(s) {
   const th = 0.02, pad = Math.floor(RATE * 0.15); let a = 0, b = s.length - 1;
